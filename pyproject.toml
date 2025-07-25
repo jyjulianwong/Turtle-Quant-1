@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "turtle-quant-1"
+version = "0.1.0"
+description = "All hail the turt."
+authors = [
+    { name = "Julian Wong", email = "julianwong2000@gmail.com" }
+]
+requires-python = ">= 3.12"
+dependencies = [
+    "google-cloud-run>=0.10.17",
+    "python-dotenv>=1.0.1",
+    "setuptools>=80.9.0",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    "pytest>=7.2.0",
+    "ruff>=0.11.1",
+    "uv-sort==0.6.0",
+]
