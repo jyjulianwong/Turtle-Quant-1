@@ -1,5 +1,7 @@
 # Turtle Quant 1
 
+<img src="docs/turtle.webp" alt="drawing" style="width:96px;"/>
+
 ## Tech stack
 
 [![My Skills](https://skillicons.dev/icons?i=docker,gcp,githubactions,py,terraform)](https://skillicons.dev)
