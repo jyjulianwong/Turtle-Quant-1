@@ -1,9 +1,35 @@
 """Test configuration and fixtures."""
 
 from datetime import datetime
+import os
+import logging
 
 import pandas as pd
 import pytest
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+def pytest_sessionstart(session):
+    workerinput = getattr(session.config, 'workerinput', None)
+    if workerinput is None:
+        logger.info("Running on Master Process, or not running in parallel at all...")
+        os.environ["TURTLEQUANT1_ENV"] = "d"
+        os.environ["TURTLEQUANT1_GCLOUD_REGION"] = "us-east1"
+        os.environ["TURTLEQUANT1_GCLOUD_PROJECT_ID"] = "jyw-turtlequant1-p"
+        os.environ["TURTLEQUANT1_GCLOUD_STB_DATA_NAME"] = "jyw-turtlequant1-p-stb-usea1-data"
+        os.environ["TURTLEQUANT1_ALPHA_VANTAGE_API_KEY"] = "0"
+    else:
+        logger.info(f"Running on Worker: {workerinput['workerid']}...")
+
+
+def pytest_sessionfinish(session, exitstatus):
+    workerinput = getattr(session.config, 'workerinput', None)
+    if workerinput is None:
+        logger.info("Exiting the Master Process, or running serially...")
+    else:
+        logger.info(f"Exiting Worker: {workerinput['workerid']}...")
 
 
 @pytest.fixture
@@ -25,14 +51,3 @@ def sample_ohlcv_data():
     data = data.rename(columns={"index": "datetime"})
     return data[["datetime", "Open", "High", "Low", "Close", "Volume"]]
 
-
-@pytest.fixture
-def mock_gcs_credentials(monkeypatch):
-    """Mock GCS credentials for testing."""
-    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "mock_credentials.json")
-
-
-@pytest.fixture
-def mock_alpha_vantage_key(monkeypatch):
-    """Mock Alpha Vantage API key for testing."""
-    monkeypatch.setenv("ALPHA_VANTAGE_API_KEY", "mock_api_key")

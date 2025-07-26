@@ -25,7 +25,7 @@ def dates():
 
 
 @pytest.fixture
-def mock_storage_adapter(mock_gcs_credentials):
+def mock_storage_adapter():
     """Fixture for mock storage adapter."""
     return MagicMock(spec=GCSDataStorageAdapter)
 
