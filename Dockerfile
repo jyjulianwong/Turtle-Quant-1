@@ -21,4 +21,5 @@ RUN uv sync --frozen
 # Copy only necessary files
 COPY turtle_quant_1/ $APP_ROOT/turtle_quant_1/
 
-CMD ["echo", "This is the Turtle Quant 1 base image."]
+EXPOSE 8080
+CMD ["uv", "run", "uvicorn", "turtle_quant_1.server.main:app", "--host", "0.0.0.0", "--port", "8080"]

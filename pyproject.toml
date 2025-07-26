@@ -12,6 +12,7 @@ authors = [
 requires-python = ">= 3.12"
 dependencies = [
     "alpha-vantage>=3.0.0",
+    "fastapi[standard]>=0.116.1",
     "google-cloud-run>=0.10.17",
     "google-cloud-storage>=3.2.0",
     "numpy>=2.3.2",
@@ -19,6 +20,7 @@ dependencies = [
     "pyarrow>=18.0.0",
     "python-dotenv>=1.0.1",
     "setuptools>=80.9.0",
+    "uvicorn>=0.35.0",
     "yfinance>=0.2.65",
 ]
 
