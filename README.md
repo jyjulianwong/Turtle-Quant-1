@@ -9,8 +9,8 @@
 1. Clone the repository.
 
 ```bash
-```
 git clone https://github.com/jyjulianwong/Turtle-Quant-1.git
+```
 
 2. Verify that you have a compatible Python version installed on your machine.
 ```bash
