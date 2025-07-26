@@ -1,0 +1,7 @@
+image_tag = "{{IMAGE_TAG}}"
+
+turtlequant1_env = "{{TURTLEQUANT1_ENV}}"
+turtlequant1_gcloud_project_id = "{{TURTLEQUANT1_GCLOUD_PROJECT_ID}}"
+turtlequant1_gcloud_region = "{{TURTLEQUANT1_GCLOUD_REGION}}"
+turtlequant1_gcloud_stb_data_name = "{{TURTLEQUANT1_GCLOUD_STB_DATA_NAME}}"
+turtlequant1_alpha_vantage_api_key = "{{TURTLEQUANT1_ALPHA_VANTAGE_API_KEY}}"
