@@ -1,4 +1,4 @@
-"""Unit tests for data processor and maintainer components."""
+"""Unit tests for data processor component."""
 
 from datetime import datetime
 from unittest.mock import MagicMock
@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
+from turtle_quant_1.data_processing.base import BaseDataMaintainer
 from turtle_quant_1.data_processing.gcs_storage_adapter import GCSDataStorageAdapter
-from turtle_quant_1.data_processing.maintainer import DataMaintainer
 from turtle_quant_1.data_processing.processor import DataProcessor
 from turtle_quant_1.data_processing.yfinance_fetcher import YFinanceDataFetcher
 
@@ -37,35 +37,71 @@ def mock_fetcher():
 
 
 @pytest.fixture
-def data_processor(symbols, mock_storage_adapter, mock_fetcher):
-    """Fixture for DataProcessor instance."""
-    return DataProcessor(
-        symbols=symbols,
-        fetcher_type=mock_fetcher,
-        storage=mock_storage_adapter,
+def mock_maintainer():
+    """Fixture for mock maintainer."""
+    return MagicMock(spec=BaseDataMaintainer)
+
+
+@pytest.fixture
+def sample_ohlcv_data():
+    """Fixture for sample OHLCV data."""
+    return pd.DataFrame(
+        {
+            "Open": [150.0, 151.0],
+            "High": [152.0, 153.0],
+            "Low": [149.0, 150.0],
+            "Close": [151.0, 152.0],
+            "Volume": [1000000, 1050000],
+        },
+        index=pd.date_range(datetime(2024, 1, 1), periods=2, freq="h"),
     )
 
 
 @pytest.fixture
-def mock_processor():
-    """Fixture for mock processor."""
-    return MagicMock(spec=DataProcessor)
-
-
-@pytest.fixture
-def data_maintainer(mock_processor, mock_storage_adapter, symbols):
-    """Fixture for DataMaintainer instance."""
-    return DataMaintainer(
-        processor=mock_processor,
-        storage=mock_storage_adapter,
+def data_processor(symbols, mock_storage_adapter, mock_fetcher, mock_maintainer):
+    """Fixture for DataProcessor instance."""
+    return DataProcessor(
         symbols=symbols,
+        storage=mock_storage_adapter,
+        fetcher=mock_fetcher,
+        maintainer=mock_maintainer,
     )
 
 
 class TestDataProcessor:
     """Test cases for DataProcessor."""
 
-    def test_update_data_new_symbol(
+    def test_load_data_from_storage(
+        self,
+        data_processor,
+        mock_storage_adapter,
+        sample_ohlcv_data,
+        dates,
+    ):
+        """Test loading data from storage when data exists."""
+        # Setup
+        symbol = "AAPL"
+        mock_storage_adapter.load_ohlcv.return_value = sample_ohlcv_data
+
+        # Test
+        result = data_processor.load_data(
+            symbol=symbol,
+            start_date=dates["start"],
+            end_date=dates["end"],
+            impute_data=False,
+        )
+
+        # Assertions
+        pd.testing.assert_frame_equal(result, sample_ohlcv_data)
+        mock_storage_adapter.load_ohlcv.assert_called_once_with(
+            symbol=symbol,
+            start_date=dates["start"],
+            end_date=dates["end"],
+        )
+        assert not mock_storage_adapter.save_data.called
+        assert symbol in data_processor.data_cache
+
+    def test_load_data_from_fetcher(
         self,
         data_processor,
         mock_storage_adapter,
@@ -73,31 +109,35 @@ class TestDataProcessor:
         sample_ohlcv_data,
         dates,
     ):
-        """Test updating data for a new symbol."""
+        """Test loading data from fetcher when storage is empty."""
         # Setup
         symbol = "AAPL"
-
-        # Mock storage to return empty data (new symbol)
         mock_storage_adapter.load_ohlcv.return_value = pd.DataFrame()
-
-        # Mock fetcher directly on the processor instance
-        mock_fetcher = MagicMock()
         mock_fetcher.fetch_hourly_ohlcv.return_value = sample_ohlcv_data
-        data_processor.fetcher = mock_fetcher
 
         # Test
-        data_processor.update_data(symbol, dates["start"], dates["end"])
+        result = data_processor.load_data(
+            symbol=symbol,
+            start_date=dates["start"],
+            end_date=dates["end"],
+            impute_data=False,
+        )
 
         # Assertions
-        mock_storage_adapter.load_ohlcv.assert_called_once_with(symbol)
+        pd.testing.assert_frame_equal(result, sample_ohlcv_data)
+        mock_storage_adapter.load_ohlcv.assert_called_once()
         mock_fetcher.fetch_hourly_ohlcv.assert_called_once_with(
             symbol=symbol,
             start_date=dates["start"],
             end_date=dates["end"],
         )
-        mock_storage_adapter.save_ohlcv.assert_called_once()
+        mock_storage_adapter.save_data.assert_called_once_with(
+            symbol=symbol,
+            data=sample_ohlcv_data,
+        )
+        assert symbol in data_processor.data_cache
 
-    def test_update_data_existing_symbol(
+    def test_load_data_from_cache(
         self,
         data_processor,
         mock_storage_adapter,
@@ -105,68 +145,86 @@ class TestDataProcessor:
         sample_ohlcv_data,
         dates,
     ):
-        """Test updating data for an existing symbol."""
+        """Test loading data from cache when available."""
+        # Setup
+        symbol = "AAPL"
+        data_processor.data_cache[symbol] = sample_ohlcv_data
+
+        # Test
+        result = data_processor.load_data(
+            symbol=symbol,
+            start_date=dates["start"],
+            end_date=dates["end"],
+            impute_data=False,
+        )
+
+        # Assertions
+        pd.testing.assert_frame_equal(result, sample_ohlcv_data)
+        assert not mock_storage_adapter.load_ohlcv.called
+        assert not mock_fetcher.fetch_hourly_ohlcv.called
+        assert not mock_storage_adapter.save_data.called
+
+    def test_load_data_with_imputation(
+        self,
+        data_processor,
+        mock_storage_adapter,
+        mock_maintainer,
+        sample_ohlcv_data,
+        dates,
+    ):
+        """Test loading data with imputation enabled."""
+        # Setup
+        symbol = "AAPL"
+        mock_storage_adapter.load_ohlcv.return_value = sample_ohlcv_data
+
+        # Create imputed data with an extra row
+        imputed_data = sample_ohlcv_data.copy()
+        imputed_data.loc[datetime(2024, 1, 1, 2)] = [
+            153.0,
+            154.0,
+            152.0,
+            153.0,
+            1100000,
+        ]
+
+        mock_maintainer.impute_data.return_value = imputed_data
+
+        # Test
+        result = data_processor.load_data(
+            symbol=symbol,
+            start_date=dates["start"],
+            end_date=dates["end"],
+            impute_data=True,
+        )
+
+        # Assertions
+        pd.testing.assert_frame_equal(result, imputed_data)
+        mock_maintainer.impute_data.assert_called_once_with(
+            symbol,
+            sample_ohlcv_data,
+            dates["end"],
+        )
+        mock_storage_adapter.save_data.assert_called_once_with(
+            symbol=symbol,
+            data=imputed_data,
+        )
+        assert symbol in data_processor.data_cache
+
+    def test_save_data(
+        self,
+        data_processor,
+        mock_storage_adapter,
+        sample_ohlcv_data,
+    ):
+        """Test saving data explicitly."""
         # Setup
         symbol = "AAPL"
 
-        # Mock existing data
-        existing_data = pd.DataFrame(
-            {
-                "Open": [148.0, 149.0],
-                "High": [150.0, 151.0],
-                "Low": [147.0, 148.0],
-                "Close": [149.0, 150.0],
-                "Volume": [900000, 950000],
-            },
-            index=pd.date_range(datetime(2023, 12, 31), periods=2, freq="h"),
+        # Test
+        data_processor.save_data(symbol=symbol, data=sample_ohlcv_data)
+
+        # Assertions
+        mock_storage_adapter.save_data.assert_called_once_with(
+            symbol=symbol,
+            data=sample_ohlcv_data,
         )
-
-        mock_storage_adapter.load_ohlcv.return_value = existing_data
-
-        # Mock fetcher directly on the processor instance
-        mock_fetcher = MagicMock()
-        mock_fetcher.fetch_hourly_ohlcv.return_value = sample_ohlcv_data
-        data_processor.fetcher = mock_fetcher
-
-        # Test
-        data_processor.update_data(symbol, dates["start"], dates["end"])
-
-        # Assertions
-        mock_storage_adapter.load_ohlcv.assert_called_once_with(symbol)
-        mock_fetcher.fetch_hourly_ohlcv.assert_called_once()
-        mock_storage_adapter.save_ohlcv.assert_called_once()
-
-
-class TestDataMaintainer:
-    """Test cases for DataMaintainer."""
-
-    def test_update_historical_data(self, data_maintainer, mock_processor, symbols):
-        """Test updating historical data for all symbols."""
-        # Test
-        data_maintainer.ensure_all_continuous_data()
-
-        # Assertions
-        assert mock_processor.update_data.call_count == len(symbols)
-
-    def test_update_latest_data(self, data_maintainer, mock_processor, symbols):
-        """Test updating latest data for all symbols."""
-        # Test with a short time window
-        end_date = datetime.now()
-        # start_date = end_date - timedelta(days=1)
-
-        data_maintainer.ensure_all_continuous_data(end_date=end_date)
-
-        # Assertions
-        assert mock_processor.update_data.call_count == len(symbols)
-
-    def test_cleanup_old_data(
-        self, data_maintainer, mock_storage_adapter, sample_ohlcv_data, symbols
-    ):
-        """Test cleaning up old data."""
-        # This functionality is handled by ensure_continuous_data which only maintains
-        # data within MAX_HISTORY_MONTHS window
-        end_date = datetime.now()
-        data_maintainer.ensure_all_continuous_data(end_date=end_date)
-
-        # Assertions
-        assert mock_storage_adapter.load_ohlcv.call_count == len(symbols)
