@@ -16,7 +16,7 @@ COPY setup.py .
 COPY uv.lock .
 
 # Install dependencies using uv
-RUN uv pip install --no-optional-deps .
+RUN uv sync --no-default-groups
 
 # Copy only necessary files
 COPY turtle_quant_1/ $APP_ROOT/turtle_quant_1/
