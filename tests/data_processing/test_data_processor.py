@@ -164,7 +164,7 @@ class TestDataMaintainer:
     ):
         """Test cleaning up old data."""
         # This functionality is handled by ensure_continuous_data which only maintains
-        # data within MAX_HISTORY_YEARS window
+        # data within MAX_HISTORY_MONTHS window
         end_date = datetime.now()
         data_maintainer.ensure_all_continuous_data(end_date=end_date)
 

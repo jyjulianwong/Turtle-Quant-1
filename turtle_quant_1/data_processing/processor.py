@@ -1,18 +1,24 @@
 """Data processor for orchestrating data fetching and storage."""
 
-from datetime import datetime, timedelta
-from typing import List, Optional, Type
+import logging
+from datetime import datetime
+from typing import List, Optional
 
 import pandas as pd
 
-from turtle_quant_1.config import MAX_HISTORY_YEARS, SYMBOLS
+from turtle_quant_1.config import LIVE_SYMBOLS
 from turtle_quant_1.data_processing.base import (
     BaseDataFetcher,
+    BaseDataMaintainer,
     BaseDataProcessor,
     BaseDataStorageAdapter,
 )
 from turtle_quant_1.data_processing.gcs_storage_adapter import GCSDataStorageAdapter
+from turtle_quant_1.data_processing.maintainer import DataMaintainer
 from turtle_quant_1.data_processing.yfinance_fetcher import YFinanceDataFetcher
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class DataProcessor(BaseDataProcessor):
@@ -21,79 +27,34 @@ class DataProcessor(BaseDataProcessor):
     def __init__(
         self,
         symbols: Optional[List[str]] = None,
-        fetcher_type: Optional[Type[BaseDataFetcher]] = None,
         storage: Optional[BaseDataStorageAdapter] = None,
+        fetcher: Optional[BaseDataFetcher] = None,
+        maintainer: Optional[BaseDataMaintainer] = None,
     ):
         """Initialize the data processor.
 
         Args:
             symbols: List of symbols to process. If None, uses SYMBOLS from config.
-            fetcher_type: Data fetcher class to use. If None, uses YFinanceDataFetcher.
             storage: Data storage to use. If None, uses GCSDataStorage.
+            fetcher: Data fetcher to use. If None, uses YFinanceDataFetcher.
+            maintainer: Data maintainer to use. If None, uses DataMaintainer.
         """
-        self.symbols = symbols or SYMBOLS
-        self.fetcher_type = fetcher_type or YFinanceDataFetcher
+        self.symbols = symbols or LIVE_SYMBOLS
+
         self.storage = storage or GCSDataStorageAdapter()
-
-        # Initialize fetcher
-        self.fetcher = self.fetcher_type(self.symbols)
-
-    def update_data(
-        self,
-        symbol: str,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> None:
-        """Update data for a symbol.
-
-        Args:
-            symbol: Symbol to update data for.
-            start_date: Start date for the data. If None, uses MAX_HISTORY_YEARS ago.
-            end_date: End date for the data. If None, uses current time.
-        """
-        # Set default dates if not provided
-        end_date = end_date or datetime.now()
-        start_date = start_date or (end_date - timedelta(days=365 * MAX_HISTORY_YEARS))
-
-        # Check for existing data
-        try:
-            existing_data = self.storage.load_ohlcv(symbol)
-        except Exception:
-            # If loading fails, assume no existing data
-            existing_data = pd.DataFrame()
-
-        # Fetch data
-        df = self.fetcher.fetch_hourly_ohlcv(
-            symbol=symbol,
-            start_date=start_date,
-            end_date=end_date,
+        self.fetcher = fetcher or YFinanceDataFetcher(symbols=self.symbols)
+        self.maintainer = maintainer or DataMaintainer(
+            symbols=self.symbols, fetcher=self.fetcher
         )
 
-        # Combine with existing data if any
-        if not existing_data.empty and not df.empty:
-            # Convert datetime columns to same type for concatenation
-            if "datetime" in existing_data.columns and "datetime" in df.columns:
-                existing_data["datetime"] = pd.to_datetime(existing_data["datetime"])
-                df["datetime"] = pd.to_datetime(df["datetime"])
-
-                # Remove duplicates by datetime and combine
-                combined_data = pd.concat([existing_data, df], ignore_index=True)
-                combined_data = combined_data.drop_duplicates(
-                    subset=["datetime"], keep="last"
-                )
-                combined_data = combined_data.sort_values("datetime").reset_index(
-                    drop=True
-                )
-                df = combined_data
-
-        # Save data
-        self.storage.save_ohlcv(symbol=symbol, data=df)
+        self.data_cache: dict[str, pd.DataFrame] = {}
 
     def load_data(
         self,
         symbol: str,
         start_date: datetime,
         end_date: datetime,
+        impute_data: bool = True,
     ) -> pd.DataFrame:
         """Load data for a symbol.
 
@@ -101,30 +62,58 @@ class DataProcessor(BaseDataProcessor):
             symbol: Symbol to load data for.
             start_date: Start date for the data.
             end_date: End date for the data.
+            impute_data: Whether to impute data.
 
         Returns:
             DataFrame with OHLCV data.
         """
-        return self.storage.load_ohlcv(
-            symbol=symbol,
-            start_date=start_date,
-            end_date=end_date,
-        )
+        is_data_updated = False
 
-    def update_all_data(
-        self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> None:
-        """Update data for all symbols.
-
-        Args:
-            start_date: Start date for the data. If None, uses MAX_HISTORY_YEARS ago.
-            end_date: End date for the data. If None, uses current time.
-        """
-        for symbol in self.symbols:
-            self.update_data(
+        if symbol in self.data_cache:
+            df = self.data_cache[symbol]
+        else:
+            logger.warning(
+                f"No data found for {symbol} in cache. Fetching from {self.storage}..."
+            )
+            df = self.storage.load_ohlcv(
                 symbol=symbol,
                 start_date=start_date,
                 end_date=end_date,
             )
+
+        if df.empty:
+            logger.warning(
+                f"No data found for {symbol}. Fetching from {self.fetcher}..."
+            )
+            # TODO: Respect CANDLE_UNIT.
+            df = self.fetcher.fetch_hourly_ohlcv(
+                symbol=symbol,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            is_data_updated = True
+
+        if impute_data:
+            _df = self.maintainer.impute_data(symbol, df, end_date)
+            if not _df.index.equals(df.index):
+                is_data_updated = True
+            df = _df
+
+        # Save updated data in relevant locations
+        self.data_cache[symbol] = df
+        if is_data_updated:
+            logger.info(
+                f"Data has been changed. Updating data for {symbol} in cache and storage..."
+            )
+            self.save_data(symbol, df)
+
+        return df
+
+    def save_data(self, symbol: str, data: pd.DataFrame) -> None:
+        """Save data to storage.
+
+        Args:
+            symbol: Symbol to save data for.
+            data: DataFrame with data.
+        """
+        self.storage.save_data(symbol=symbol, data=data)

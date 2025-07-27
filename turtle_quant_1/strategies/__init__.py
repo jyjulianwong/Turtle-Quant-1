@@ -54,10 +54,10 @@ from turtle_quant_1.strategies.base import (
     Signal,
     SignalAction,
 )
+from turtle_quant_1.strategies.engine import StrategyEngine
 from turtle_quant_1.strategies.linear_regression_strategy import (
     LinearRegressionStrategy,
 )
-from turtle_quant_1.strategies.strategy_engine import StrategyEngine
 
 __all__ = [
     "BaseStrategy",

@@ -25,13 +25,8 @@ class GCSDataStorageAdapter(BaseDataStorageAdapter):
             bucket_name: Name of the GCS bucket. If None, reads from GCS_BUCKET_NAME env var.
             project_id: GCP project ID. If None, reads from GCP_PROJECT_ID env var.
         """
-        self.bucket_name = bucket_name or GCLOUD_STB_DATA_NAME
-        if not self.bucket_name:
-            raise ValueError("GCS_BUCKET_NAME environment variable not set")
-
         self.project_id = project_id or GCLOUD_PROJECT_ID
-        if not self.project_id:
-            raise ValueError("GCP_PROJECT_ID environment variable not set")
+        self.bucket_name = bucket_name or GCLOUD_STB_DATA_NAME
 
         self.client = storage.Client(project=self.project_id)
         self.bucket = self.client.bucket(self.bucket_name)
@@ -45,27 +40,8 @@ class GCSDataStorageAdapter(BaseDataStorageAdapter):
         Returns:
             The blob name in the format: ohlcv/{symbol}/hourly.parquet
         """
+        # TODO: Respect CANDLE_UNIT.
         return f"ohlcv/{symbol}/hourly.parquet"
-
-    def save_ohlcv(
-        self,
-        symbol: str,
-        data: pd.DataFrame,
-    ) -> None:
-        """Save OHLCV data to GCS.
-
-        Args:
-            symbol: The symbol the data belongs to.
-            data: DataFrame with OHLCV data.
-        """
-        blob_name = self._get_blob_name(symbol)
-        blob = self.bucket.blob(blob_name)
-
-        # Convert DataFrame to parquet and upload
-        with io.BytesIO() as buffer:
-            data.to_parquet(buffer)
-            buffer.seek(0)
-            blob.upload_from_file(buffer, content_type="application/octet-stream")
 
     def load_ohlcv(
         self,
@@ -105,17 +81,28 @@ class GCSDataStorageAdapter(BaseDataStorageAdapter):
 
         return df
 
-    def save_data(self, symbol: str, data: pd.DataFrame) -> None:
-        """Save data to GCS (alias for save_ohlcv).
+    def save_ohlcv(
+        self,
+        symbol: str,
+        data: pd.DataFrame,
+    ) -> None:
+        """Save OHLCV data to GCS.
 
         Args:
             symbol: The symbol the data belongs to.
-            data: DataFrame with data.
+            data: DataFrame with OHLCV data.
         """
-        self.save_ohlcv(symbol, data)
+        blob_name = self._get_blob_name(symbol)
+        blob = self.bucket.blob(blob_name)
+
+        # Convert DataFrame to parquet and upload
+        with io.BytesIO() as buffer:
+            data.to_parquet(buffer)
+            buffer.seek(0)
+            blob.upload_from_file(buffer, content_type="application/octet-stream")
 
     def load_data(self, symbol: str) -> pd.DataFrame:
-        """Load data from GCS (alias for load_ohlcv).
+        """TODO: Not used. Load data from GCS (alias for load_ohlcv).
 
         Args:
             symbol: The symbol to load data for.
@@ -125,8 +112,17 @@ class GCSDataStorageAdapter(BaseDataStorageAdapter):
         """
         return self.load_ohlcv(symbol)
 
+    def save_data(self, symbol: str, data: pd.DataFrame) -> None:
+        """TODO: Not used. Save data to GCS (alias for save_ohlcv).
+
+        Args:
+            symbol: The symbol the data belongs to.
+            data: DataFrame with data.
+        """
+        self.save_ohlcv(symbol, data)
+
     def delete_data(self, symbol: str) -> None:
-        """Delete data from GCS.
+        """TODO: Not used. Delete data from GCS.
 
         Args:
             symbol: The symbol to delete data for.
