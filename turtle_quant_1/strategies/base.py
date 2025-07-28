@@ -1,11 +1,13 @@
 """Base classes for trading strategies."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional
 
 import pandas as pd
+from pydantic import BaseModel, Field
+from sklearn.preprocessing import normalize
+import numpy as np
 
 
 class SignalAction(Enum):
@@ -16,8 +18,7 @@ class SignalAction(Enum):
     SELL = "SELL"
 
 
-@dataclass
-class Signal:
+class Signal(BaseModel):
     """Trading signal with comprehensive information.
 
     Attributes:
@@ -26,36 +27,28 @@ class Signal:
         score: The final aggregated score between -1.0 and +1.0.
     """
 
-    strategies: List[str]
-    action: SignalAction
-    score: float
-
-    def __post_init__(self):
-        """Validate signal data after initialization."""
-        if not isinstance(self.strategies, list):
-            raise ValueError("strategies must be a list")
-        if not self.strategies:
-            raise ValueError("strategies list cannot be empty")
-        if not isinstance(self.action, SignalAction):
-            raise ValueError("action must be a SignalAction enum value")
-        if not isinstance(self.score, (int, float)):
-            raise ValueError("score must be a number")
-        if not -1.0 <= self.score <= 1.0:
-            raise ValueError("score must be between -1.0 and +1.0")
-
-    @property
-    def action_value(self) -> str:
-        """Get the string value of the action for backward compatibility."""
-        return self.action.value
-
-    def __str__(self) -> str:
-        """String representation of the signal."""
-        strategies_str = ", ".join(self.strategies)
-        return f"Signal(action={self.action.value}, score={self.score:.3f}, strategies=[{strategies_str}])"
-
-    def __repr__(self) -> str:
-        """Detailed string representation of the signal."""
-        return f"Signal(strategies={self.strategies}, action={self.action}, score={self.score})"
+    strategies: List[str] = Field(
+        ...,
+        min_length=1,
+        description="List of strategy names that contributed to this signal",
+    )
+    scores: Dict[str, float] = Field(
+        ...,
+        description="Dictionary mapping strategy names to their scores",
+    )
+    weights: Dict[str, float] = Field(
+        ...,
+        description="Dictionary mapping strategy names to their weights",
+    )
+    score: float = Field(
+        ...,
+        ge=-1.0,
+        le=1.0,
+        description="The final aggregated score between -1.0 and +1.0",
+    )  # pyrefly: ignore[no-matching-overload]
+    action: SignalAction = Field(
+        ..., description="The trading action, i.e. BUY, HOLD, or SELL"
+    )
 
 
 class BaseStrategy(ABC):
@@ -110,7 +103,11 @@ class BaseStrategyEngine(ABC):
     """Base class for strategy engines that aggregate multiple strategies."""
 
     def __init__(
-        self, strategies: List[BaseStrategy], weights: Optional[List[float]] = None
+        self,
+        strategies: List[BaseStrategy],
+        weights: Optional[List[float]] = None,
+        buy_threshold: float = 0.3,
+        sell_threshold: float = -0.3,
     ):
         """Initialize the strategy engine.
 
@@ -131,8 +128,22 @@ class BaseStrategyEngine(ABC):
             if len(weights) != len(strategies):
                 raise ValueError("Number of weights must match number of strategies")
             if abs(sum(weights) - 1.0) > 1e-6:
-                raise ValueError("Weights must sum to 1.0")
+                # Convert to 2D array because sklearn expects 2D input
+                weights_array = np.array(weights).reshape(1, -1)
+                # Apply L1 normalization
+                normalized_array = normalize(weights_array, norm="l1")
+                # Flatten back to 1D
+                weights = normalized_array.flatten().tolist()
+
             self.weights = weights
+
+        if not (-1.0 <= sell_threshold <= buy_threshold <= 1.0):
+            raise ValueError(
+                "Thresholds must satisfy: -1.0 <= sell_threshold <= buy_threshold <= 1.0"
+            )
+
+        self.buy_threshold = buy_threshold
+        self.sell_threshold = sell_threshold
 
     @abstractmethod
     def aggregate_scores(self, data: pd.DataFrame, symbol: str) -> float:

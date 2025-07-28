@@ -1,7 +1,5 @@
 """Simple linear regression strategy implementation."""
 
-from typing import Any
-
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
@@ -20,7 +18,7 @@ class LinearRegressionStrategy(BaseStrategy):
     """
 
     def __init__(
-        self, lookback_candles: int = 24, name: str = "LinearRegressionStrategy"
+        self, name: str = "LinearRegressionStrategy", lookback_candles: int = 120
     ):
         """Initialize the linear regression strategy.
 
@@ -30,69 +28,6 @@ class LinearRegressionStrategy(BaseStrategy):
         """
         super().__init__(name)
         self.lookback_candles = lookback_candles
-
-    def get_breakdown(self, data: pd.DataFrame, symbol: str) -> dict[str, Any]:
-        """Get detailed linear regression information for analysis.
-
-        Args:
-            data: DataFrame with OHLCV data.
-            symbol: The symbol being analyzed.
-
-        Returns:
-            Dictionary with linear regression analysis details.
-        """
-        # Validate input data
-        self.validate_data(data)
-
-        # Ensure data is sorted by datetime
-        data_sorted = data.sort_values("datetime").copy()
-
-        # Use the specified number of recent periods
-        periods_to_use = min(self.lookback_candles, len(data_sorted))
-        recent_data = data_sorted.tail(periods_to_use).copy()
-
-        if len(recent_data) < 2:
-            return {
-                "slope": 0.0,
-                "relative_slope": 0.0,
-                "r_squared": 0.0,
-                "trend_direction": "insufficient_data",
-                "periods_used": len(recent_data),
-            }
-
-        # Create time index for regression
-        recent_data = recent_data.reset_index(drop=True)
-        X = np.arange(len(recent_data)).reshape(-1, 1)
-        y = recent_data["Close"].values
-
-        # Fit linear regression
-        reg = LinearRegression()
-        reg.fit(X, y)
-        slope = reg.coef_[0]
-        r_squared = reg.score(X, y)
-
-        # Calculate relative slope
-        avg_price = np.mean(y)
-        relative_slope = slope / avg_price if avg_price != 0 else 0.0
-
-        # Determine trend direction
-        if relative_slope > 0.001:  # 0.1% threshold
-            trend_direction = "upward"
-        elif relative_slope < -0.001:
-            trend_direction = "downward"
-        else:
-            trend_direction = "sideways"
-
-        return {
-            "slope": float(slope),
-            "relative_slope": float(relative_slope),
-            "r_squared": float(r_squared),
-            "trend_direction": trend_direction,
-            "periods_used": periods_to_use,
-            "avg_price": float(avg_price),
-            "start_price": float(y[0]),
-            "end_price": float(y[-1]),
-        }
 
     def generate_score(self, data: pd.DataFrame, symbol: str) -> float:
         """Generate a trading score based on linear regression analysis.
@@ -128,11 +63,11 @@ class LinearRegressionStrategy(BaseStrategy):
         slope = reg.coef_[0]
 
         # Calculate relative slope (normalize by average price to make it scale-invariant)
-        avg_price = np.mean(y)
-        if avg_price == 0:
+        mean_price = np.mean(y)  # pyrefly: ignore[no-matching-overload]
+        if mean_price == 0:
             return 0.0
 
-        relative_slope = slope / avg_price
+        relative_slope = slope / mean_price
 
         # Scale the relative slope to generate score between -1 and +1
         # We use a sigmoid-like function to map slope to score

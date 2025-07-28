@@ -8,8 +8,17 @@ from turtle_quant_1.backtesting.test_runner import (
     BacktestingTestRunner,
 )
 from turtle_quant_1.strategies.engine import StrategyEngine
-from turtle_quant_1.strategies.linear_regression_strategy import (
+from turtle_quant_1.strategies.momentum.linear_regression_strategy import (
     LinearRegressionStrategy,
+)
+from turtle_quant_1.strategies.momentum.moving_average_crossover_strategy import (
+    MovingAverageCrossoverStrategy,
+)
+from turtle_quant_1.strategies.momentum.relative_strength_index_strategy import (
+    RelativeStrengthIndexStrategy,
+)
+from turtle_quant_1.strategies.mean_reversion.bollinger_band_strategy import (
+    BollingerBandStrategy,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -20,16 +29,22 @@ def create_test_cases() -> List[BacktestingTestCase]:
     """Create predefined test cases for backtesting."""
     test_cases = []
 
-    linear_regression_strategy = LinearRegressionStrategy(
-        name="LinearRegression",
-    )
+    linear_regression_strategy = LinearRegressionStrategy()
+    moving_average_crossover_strategy = MovingAverageCrossoverStrategy()
+    relative_strength_index_strategy = RelativeStrengthIndexStrategy()
+    bollinger_band_strategy = BollingerBandStrategy()
 
     # Test Case 1: Zero capital test
     strategy_engine_aggressive = StrategyEngine(
-        strategies=[linear_regression_strategy],
-        weights=[1.0],
-        buy_threshold=0.1,
-        sell_threshold=-0.1,
+        strategies=[
+            linear_regression_strategy,
+            moving_average_crossover_strategy,
+            relative_strength_index_strategy,
+            bollinger_band_strategy,
+        ],
+        weights=[1.0, 1.0, 1.0, 1.0],
+        buy_threshold=0.2,
+        sell_threshold=-0.2,
     )
 
     test_cases.append(
@@ -46,8 +61,13 @@ def create_test_cases() -> List[BacktestingTestCase]:
 
     # Test Case 2: Standard backtesting with moderate capital
     strategy_engine = StrategyEngine(
-        strategies=[linear_regression_strategy],
-        weights=[1.0],
+        strategies=[
+            linear_regression_strategy,
+            moving_average_crossover_strategy,
+            relative_strength_index_strategy,
+            bollinger_band_strategy,
+        ],
+        weights=[1.0, 1.0, 1.0, 1.0],
         buy_threshold=0.2,
         sell_threshold=-0.2,
     )
@@ -74,4 +94,3 @@ if __name__ == "__main__":
     results = runner.run_all_tests()
 
     logger.info("All backtesting tests completed!")
-    logger.info(results)

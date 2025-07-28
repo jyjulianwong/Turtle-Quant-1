@@ -299,21 +299,15 @@ class BacktestingEngine:
                 current_prices[symbol] = current_price
 
                 # Generate signal
-                try:
-                    signal = self.strategy_engine.generate_signal(lookback_data, symbol)
-                    total_signals += 1
+                signal = self.strategy_engine.generate_signal(lookback_data, symbol)
+                total_signals += 1
 
-                    # Execute signal
-                    transaction_executed = self._execute_signal(
-                        symbol, signal.action, current_price, timestamp
-                    )
-                    if transaction_executed:
-                        total_transactions += 1
-
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to generate signal for {symbol} at {timestamp}: {e}"
-                    )
+                # Execute signal
+                transaction_executed = self._execute_signal(
+                    symbol, signal.action, current_price, timestamp
+                )
+                if transaction_executed:
+                    total_transactions += 1
 
             # Log progress periodically
             if i % 100 == 0:  # Every 100 simulation ticks

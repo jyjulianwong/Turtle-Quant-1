@@ -15,7 +15,7 @@ if ENV not in ["d", "p"]:
         "TURTLEQUANT1_ENV must be either 'd' (development) or 'p' (production)"
     )
 
-# API Keys
+# API keys
 ALPHA_VANTAGE_API_KEY = os.getenv("TURTLEQUANT1_ALPHA_VANTAGE_API_KEY")
 if not ALPHA_VANTAGE_API_KEY:
     raise ValueError("TURTLEQUANT1_ALPHA_VANTAGE_API_KEY environment variable not set")
@@ -33,13 +33,22 @@ GCLOUD_STB_DATA_NAME = os.getenv("TURTLEQUANT1_GCLOUD_STB_DATA_NAME")
 if not GCLOUD_STB_DATA_NAME:
     raise ValueError("TURTLEQUANT1_GCLOUD_STB_DATA_NAME environment variable not set")
 
+# Path shortcuts
 PROJECT_ROOT = Path(__file__).parent.parent
 PACKAGE_ROOT = Path(__file__).parent
 
+# Constants
+# The base unit for each data point
 CANDLE_UNIT = "HOUR"
-MAX_HISTORY_DAYS = 700  # The history limit for YFinance is 730 days
+# The maximum amount of data that is ever stored in the database for each symbol
+# Make sure the lookback and lookforward periods are less than this value
+# The history limit for YFinance is 730 days
+MAX_HISTORY_DAYS = 700
+# In case of missing data, the maximum number of gaps to impute
+# This is to prevent hitting API limits when fetching data to fill gaps
 MAX_CANDLE_GAPS_TO_FILL = 100
 
+# Mapping of GCP regions to their corresponding PYTZ timezone
 _gcloud_region_to_pytz_dict = {
     "us-central1": "America/Chicago",
     "us-east1": "America/New_York",
@@ -76,33 +85,41 @@ if GCLOUD_REGION and ENV == "p":
 MARKET_HOURS = {
     "NYSE": {
         "opening": "09:30",
-        "closing": "15:30",
+        "closing": "15:30",  # 16:00
         "timezone": "America/New_York",
     },
     "XECB": {
         "opening": "08:00",
-        "closing": "16:30",
+        "closing": "16:00",  # 16:30
         "timezone": "Europe/Paris",
     },
     "ECB": {
         "opening": "08:00",
-        "closing": "16:30",
+        "closing": "16:00",  # 16:30
         "timezone": "Europe/Paris",
     },
     "LSE": {
         "opening": "08:00",
-        "closing": "16:30",
+        "closing": "16:00",  # 16:30
         "timezone": "Europe/London",
     },
 }
 
+# Mapping of symbols to their corresponding market
 SYMBOL_MARKETS = {
     "MSFT": "NYSE",
     "GOOG": "NYSE",
 }
 
+# Backtesting constants
+# The maximum lookback period for backtesting
 BACKTESTING_MAX_LOOKBACK_DAYS = 365
-BACKTESTING_MAX_LOOKFORWARD_DAYS = 335  # (700 - 365)
+# The maximum lookforward period for backtesting
+# (700 - 365)
+BACKTESTING_MAX_LOOKFORWARD_DAYS = 335
+# The symbols to use for backtesting
 BACKTESTING_SYMBOLS = ["MSFT", "GOOG"]
 
+# Live mode constants
+# The symbols to use for live mode
 LIVE_SYMBOLS = ["MSFT", "GOOG"]

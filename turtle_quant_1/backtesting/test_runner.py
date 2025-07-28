@@ -1,7 +1,7 @@
 """Test runner for backtesting engine."""
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 
 from turtle_quant_1.config import (
@@ -10,7 +10,7 @@ from turtle_quant_1.config import (
     BACKTESTING_MAX_LOOKBACK_DAYS,
     BACKTESTING_MAX_LOOKFORWARD_DAYS,
 )
-from turtle_quant_1.backtesting import BacktestingEngine
+from turtle_quant_1.backtesting.engine import BacktestingEngine
 from turtle_quant_1.strategies.engine import StrategyEngine
 
 logging.basicConfig(level=logging.INFO)
@@ -25,15 +25,15 @@ class BacktestingTestCase:
     description: str
     strategy_engine: StrategyEngine
     initial_capital: float
-    symbols: List[str] = BACKTESTING_SYMBOLS
-    max_history_days: int = MAX_HISTORY_DAYS
-    max_lookback_days: int = BACKTESTING_MAX_LOOKBACK_DAYS
-    max_lookforward_days: int = BACKTESTING_MAX_LOOKFORWARD_DAYS
+    symbols: List[str] = field(default_factory=lambda: BACKTESTING_SYMBOLS)
+    max_history_days: int = field(default_factory=lambda: MAX_HISTORY_DAYS)
+    max_lookback_days: int = field(
+        default_factory=lambda: BACKTESTING_MAX_LOOKBACK_DAYS
+    )
+    max_lookforward_days: int = field(
+        default_factory=lambda: BACKTESTING_MAX_LOOKFORWARD_DAYS
+    )
     expected_results: Optional[Dict[str, Any]] = None
-
-    def __post_init__(self):
-        """Set default values after initialization."""
-        pass
 
 
 class BacktestingTestRunner:

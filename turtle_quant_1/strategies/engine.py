@@ -34,15 +34,10 @@ class StrategyEngine(BaseStrategyEngine):
             buy_threshold: Minimum aggregated score to generate BUY signal (default: 0.3).
             sell_threshold: Maximum aggregated score to generate SELL signal (default: -0.3).
         """
-        super().__init__(strategies, weights)
+        super().__init__(strategies, weights, buy_threshold, sell_threshold)
 
-        if not (-1.0 <= sell_threshold <= buy_threshold <= 1.0):
-            raise ValueError(
-                "Thresholds must satisfy: -1.0 <= sell_threshold <= buy_threshold <= 1.0"
-            )
-
-        self.buy_threshold = buy_threshold
-        self.sell_threshold = sell_threshold
+        # TODO: Refactor.
+        self._scores = {}
 
     def get_configuration(self) -> Dict:
         """Get current engine configuration.
@@ -169,7 +164,9 @@ class StrategyEngine(BaseStrategyEngine):
         # Convert variance to agreement (lower variance = higher agreement)
         # Max possible variance for scores in [-1, 1] is 1.0 (when scores are -1 and +1)
         max_variance = 1.0
-        agreement = 1.0 - min(score_variance / max_variance, 1.0)
+        agreement = 1.0 - min(
+            score_variance / max_variance, 1.0
+        )  # pyrefly: ignore[no-matching-overload]
 
         return agreement
 
@@ -187,6 +184,7 @@ class StrategyEngine(BaseStrategyEngine):
 
         for strategy, weight in zip(self.strategies, self.weights):
             score = strategy.generate_score(data, symbol)
+            self._scores[strategy.name] = score  # Save scores for later use
             # Ensure score is within bounds
             score = max(-1.0, min(1.0, score))
             total_score += score * weight
@@ -214,8 +212,19 @@ class StrategyEngine(BaseStrategyEngine):
         else:
             action = SignalAction.HOLD
 
-        # Get strategy names
+        # Get strategy names, scores, and weights
         strategy_names = [strategy.name for strategy in self.strategies]
+        strategy_scores = self._scores
+        strategy_weights = {
+            strategy.name: weight
+            for strategy, weight in zip(self.strategies, self.weights)
+        }
 
         # Create and return Signal object
-        return Signal(strategies=strategy_names, action=action, score=aggregated_score)
+        return Signal(
+            strategies=strategy_names,
+            scores=strategy_scores,
+            weights=strategy_weights,
+            action=action,
+            score=aggregated_score,
+        )
