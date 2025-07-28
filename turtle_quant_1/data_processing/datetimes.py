@@ -112,6 +112,43 @@ def get_expected_market_hours_index(
     return expected_datetimes
 
 
+def is_within_market_hours(symbol: str, timestamp: datetime) -> bool:
+    """Check if the given timestamp is within trading hours for the symbol.
+
+    Args:
+        symbol: Symbol to check trading hours for.
+        timestamp: Timestamp to check. Timezone-aware.
+
+    Returns:
+        True if within trading hours (including 2-hour grace period after close), False otherwise.
+    """
+    # Check if it's a weekday (0=Monday, 6=Sunday)
+    if timestamp.weekday() >= 5:  # Saturday or Sunday
+        return False
+
+    # Get market hours for this symbol in its local timezone
+    market = SYMBOL_MARKETS.get(symbol, "NYSE")
+    market_hours = MARKET_HOURS.get(market, MARKET_HOURS["NYSE"])
+
+    # Parse market open and close times (format: "HH:MM") in its local timezone
+    o_hour, o_minute = map(int, market_hours["opening"].split(":"))
+    c_hour, c_minute = map(int, market_hours["closing"].split(":"))
+
+    # Create market open and close times for the current day whilst preserving the timezone
+    market_o_datetime = timestamp.replace(
+        hour=o_hour, minute=o_minute, second=0, microsecond=0
+    )
+    market_c_datetime = timestamp.replace(
+        hour=c_hour, minute=c_minute, second=0, microsecond=0
+    )
+
+    # Add 1-hour grace period after market close
+    market_c_dt_with_grace = market_c_datetime + timedelta(hours=1)
+
+    # Check if within trading hours (including grace period)
+    return market_o_datetime <= timestamp <= market_c_dt_with_grace
+
+
 def is_weekend_date(date: datetime) -> bool:
     """Check if a date is a weekend.
 

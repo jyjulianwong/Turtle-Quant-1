@@ -102,7 +102,7 @@ class GCSDataStorageAdapter(BaseDataStorageAdapter):
             blob.upload_from_file(buffer, content_type="application/octet-stream")
 
     def load_data(self, symbol: str) -> pd.DataFrame:
-        """TODO: Not used. Load data from GCS (alias for load_ohlcv).
+        """Load data from GCS (alias for load_ohlcv).
 
         Args:
             symbol: The symbol to load data for.
@@ -113,7 +113,7 @@ class GCSDataStorageAdapter(BaseDataStorageAdapter):
         return self.load_ohlcv(symbol)
 
     def save_data(self, symbol: str, data: pd.DataFrame) -> None:
-        """TODO: Not used. Save data to GCS (alias for save_ohlcv).
+        """Save data to GCS (alias for save_ohlcv).
 
         Args:
             symbol: The symbol the data belongs to.
@@ -122,7 +122,7 @@ class GCSDataStorageAdapter(BaseDataStorageAdapter):
         self.save_ohlcv(symbol, data)
 
     def delete_data(self, symbol: str) -> None:
-        """TODO: Not used. Delete data from GCS.
+        """Delete data from GCS.
 
         Args:
             symbol: The symbol to delete data for.

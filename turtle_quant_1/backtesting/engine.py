@@ -14,8 +14,6 @@ from turtle_quant_1.config import (
     BACKTESTING_SYMBOLS,
     HOST_TIMEZONE,
     MAX_HISTORY_DAYS,
-    MARKET_HOURS,
-    SYMBOL_MARKETS,
 )
 from turtle_quant_1.data_processing.processor import DataProcessor
 from turtle_quant_1.strategies.base import BaseStrategyEngine, SignalAction
@@ -183,47 +181,15 @@ class BacktestingEngine:
         curr_tick = tick_start
 
         while curr_tick <= tick_end:
-            ticks.append(curr_tick)
             # TODO: Respect CANDLE_UNIT.
-            curr_tick += timedelta(hours=1)
+            # NOTE: Simulate the schedule of the production host environment.
+            ticks.append(curr_tick.replace(hour=9, minute=0, second=0))
+            ticks.append(curr_tick.replace(hour=12, minute=0, second=0))
+            ticks.append(curr_tick.replace(hour=15, minute=0, second=0))
+            ticks.append(curr_tick.replace(hour=18, minute=0, second=0))
+            curr_tick += timedelta(days=1)
 
         return ticks
-
-    def _is_within_trading_hours(self, symbol: str, timestamp: datetime) -> bool:
-        """Check if the given timestamp is within trading hours for the symbol.
-
-        Args:
-            symbol: Symbol to check trading hours for.
-            timestamp: Timestamp to check. Timezone-aware.
-
-        Returns:
-            True if within trading hours (including 2-hour grace period after close), False otherwise.
-        """
-        # Check if it's a weekday (0=Monday, 6=Sunday)
-        if timestamp.weekday() >= 5:  # Saturday or Sunday
-            return False
-
-        # Get market hours for this symbol in its local timezone
-        market = SYMBOL_MARKETS.get(symbol, "NYSE")
-        market_hours = MARKET_HOURS.get(market, MARKET_HOURS["NYSE"])
-
-        # Parse market open and close times (format: "HH:MM") in its local timezone
-        o_hour, o_minute = map(int, market_hours["opening"].split(":"))
-        c_hour, c_minute = map(int, market_hours["closing"].split(":"))
-
-        # Create market open and close times for the current day whilst preserving the timezone
-        market_o_datetime = timestamp.replace(
-            hour=o_hour, minute=o_minute, second=0, microsecond=0
-        )
-        market_c_datetime = timestamp.replace(
-            hour=c_hour, minute=c_minute, second=0, microsecond=0
-        )
-
-        # Add 1-hour grace period after market close
-        market_c_dt_with_grace = market_c_datetime + timedelta(hours=1)
-
-        # Check if within trading hours (including grace period)
-        return market_o_datetime <= timestamp <= market_c_dt_with_grace
 
     def _execute_signal(
         self,
@@ -310,10 +276,6 @@ class BacktestingEngine:
         for i, timestamp in enumerate(simulation_ticks):
             # Generate signals for each symbol
             for symbol in self.symbols:
-                # Check if within trading hours for this symbol
-                if not self._is_within_trading_hours(symbol, timestamp):
-                    continue
-
                 # Get full historical data up to this point for strategy analysis
                 full_data = self.data_cache[symbol].copy()
                 current_data_mask = full_data["datetime"] <= timestamp
