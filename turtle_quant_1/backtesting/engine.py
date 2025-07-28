@@ -8,10 +8,12 @@ import pandas as pd
 
 from turtle_quant_1.backtesting.portfolio import Portfolio
 from turtle_quant_1.config import (
-    BACKTESTING_MAX_LOOKBACK_MONTHS,
-    BACKTESTING_MAX_LOOKFORWARD_MONTHS,
+    BACKTESTING_MAX_LOOKBACK_DAYS,
+    BACKTESTING_MAX_LOOKFORWARD_DAYS,
     BACKTESTING_SYMBOLS,
-    MAX_HISTORY_MONTHS,
+    MAX_HISTORY_DAYS,
+    MARKET_HOURS,
+    SYMBOL_MARKETS,
 )
 from turtle_quant_1.data_processing.processor import DataProcessor
 from turtle_quant_1.strategies.base import BaseStrategyEngine, SignalAction
@@ -29,9 +31,9 @@ class BacktestingEngine:
         strategy_engine: BaseStrategyEngine,
         symbols: list[str] = BACKTESTING_SYMBOLS,
         initial_capital: float = 0.0,
-        max_history_months: int = MAX_HISTORY_MONTHS,
-        max_lookback_months: int = BACKTESTING_MAX_LOOKBACK_MONTHS,
-        max_lookforward_months: int = BACKTESTING_MAX_LOOKFORWARD_MONTHS,
+        max_history_days: int = MAX_HISTORY_DAYS,
+        max_lookback_days: int = BACKTESTING_MAX_LOOKBACK_DAYS,
+        max_lookforward_days: int = BACKTESTING_MAX_LOOKFORWARD_DAYS,
     ):
         """Initialize the backtesting engine.
 
@@ -39,16 +41,16 @@ class BacktestingEngine:
             strategy_engine: The strategy engine to use for generating signals.
             symbols: List of symbols to backtest. If None, uses BACKTESTING_SYMBOLS.
             initial_capital: Starting capital for the portfolio (default: 0.0).
-            max_history_months: Maximum months of history to download.
-            max_lookback_months: Months of data to use for strategy signals.
-            max_lookforward_months: Months of data to simulate trading on.
+            max_history_days: Maximum days of history to download.
+            max_lookback_days: Days of data to use for strategy signals.
+            max_lookforward_days: Days of data to simulate trading on.
         """
         self.strategy_engine = strategy_engine
         self.symbols = symbols
         self.initial_capital = initial_capital
-        self.max_history_months = max_history_months
-        self.max_lookback_months = max_lookback_months
-        self.max_lookforward_months = max_lookforward_months
+        self.max_history_days = max_history_days
+        self.max_lookback_days = max_lookback_days
+        self.max_lookforward_days = max_lookforward_days
 
         self.portfolio = Portfolio(initial_capital)
 
@@ -78,7 +80,7 @@ class BacktestingEngine:
 
         # Calculate date ranges
         end_date = datetime.now()
-        start_date = end_date - timedelta(days=self.max_history_months * 30)
+        start_date = end_date - timedelta(days=self.max_history_days)
 
         try:
             # Load the data using DataProcessor
@@ -123,19 +125,21 @@ class BacktestingEngine:
 
         # Calculate lookback period in data points
         # For hourly data, we want roughly lookback_months * 30 * 24 hours
-        lookback_hours = self.max_lookback_months * 30 * 24
+        lookback_hours = self.max_lookback_days * 24
         start_index = max(0, current_index - lookback_hours)
 
         return data.iloc[start_index : current_index + 1].copy()
 
-    def _find_common_time_range(self, symbols: List[str]) -> Tuple[datetime, datetime]:
-        """Find the common time range across all symbols.
+    def _find_simulation_time_range(
+        self, symbols: List[str]
+    ) -> Tuple[datetime, datetime]:
+        """Find the overall time range for simulation across all symbols.
 
         Args:
             symbols: List of symbols to check.
 
         Returns:
-            Tuple of (start_time, end_time) for the common range.
+            Tuple of (start_time, end_time) for the simulation range.
         """
         start_times = []
         end_times = []
@@ -149,42 +153,74 @@ class BacktestingEngine:
         if not start_times:
             raise ValueError("No data found for any symbols")
 
-        common_start = max(start_times)  # Latest start time
-        common_end = min(end_times)  # Earliest end time
+        # Use the latest start time and earliest end time to ensure data availability
+        simulation_start = max(start_times)  # Latest start time
+        simulation_end = min(end_times)  # Earliest end time
 
-        return common_start, common_end
+        return simulation_start, simulation_end
 
-    def _find_common_timestamps(
-        self, simulation_data: Dict[str, pd.DataFrame]
+    def _generate_hourly_ticks(
+        self, start_time: datetime, end_time: datetime
     ) -> List[datetime]:
-        """Find common timestamps across all symbols for synchronized trading.
+        """Generate hourly ticks from start_time to end_time.
 
         Args:
-            simulation_data: Dictionary of symbol -> simulation data.
+            start_time: Start of simulation period.
+            end_time: End of simulation period.
 
         Returns:
-            List of common timestamps sorted chronologically.
+            List of datetime objects representing hourly ticks.
         """
-        if not simulation_data:
-            return []
+        # Start from the beginning of the start date (00:00)
+        tick_start = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        # Get timestamps for each symbol
-        timestamp_sets = []
-        for symbol, data in simulation_data.items():
-            if not data.empty:
-                timestamps = set(data["datetime"].tolist())
-                timestamp_sets.append(timestamps)
+        # End at the end of the end date (23:59:59)
+        tick_end = end_time.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-        if not timestamp_sets:
-            return []
+        ticks = []
+        current_tick = tick_start
 
-        # Find intersection of all timestamp sets
-        common_timestamps = timestamp_sets[0]
-        for ts_set in timestamp_sets[1:]:
-            common_timestamps = common_timestamps.intersection(ts_set)
+        while current_tick <= tick_end:
+            ticks.append(current_tick)
+            current_tick += timedelta(hours=1)
 
-        # Convert to sorted list
-        return sorted(list(common_timestamps))
+        return ticks
+
+    def _is_within_trading_hours(self, symbol: str, timestamp: datetime) -> bool:
+        """Check if the given timestamp is within trading hours for the symbol.
+
+        Args:
+            symbol: Symbol to check trading hours for.
+            timestamp: Timestamp to check (UTC timezone-naive).
+
+        Returns:
+            True if within trading hours (including 2-hour grace period after close), False otherwise.
+        """
+        # Check if it's a weekday (0=Monday, 6=Sunday)
+        if timestamp.weekday() >= 5:  # Saturday or Sunday
+            return False
+
+        # Get market hours for this symbol (already in UTC)
+        market = SYMBOL_MARKETS.get(symbol, "NYSE")
+        market_hours = MARKET_HOURS.get(market, MARKET_HOURS["NYSE"])
+
+        # Parse market open and close times (format: "HH:MM")
+        open_hour, open_minute = map(int, market_hours["open"].split(":"))
+        close_hour, close_minute = map(int, market_hours["close"].split(":"))
+
+        # Create market open and close times for the current day
+        market_open = timestamp.replace(
+            hour=open_hour, minute=open_minute, second=0, microsecond=0
+        )
+        market_close = timestamp.replace(
+            hour=close_hour, minute=close_minute, second=0, microsecond=0
+        )
+
+        # Add 2-hour grace period after market close
+        market_close_with_grace = market_close + timedelta(hours=2)
+
+        # Check if within trading hours (including grace period)
+        return market_open <= timestamp <= market_close_with_grace
 
     def _execute_signal(
         self,
@@ -236,46 +272,43 @@ class BacktestingEngine:
         """
         logger.info("Starting backtesting simulation...")
 
-        # Find the common time range across all symbols
-        common_start, common_end = self._find_common_time_range(self.symbols)
+        # Find the overall time range across all symbols
+        overall_start, overall_end = self._find_simulation_time_range(self.symbols)
 
-        # Split into lookback and lookforward periods
-        lookback_end = common_start + timedelta(days=self.max_lookback_months * 30)
+        # Split into lookback and simulation periods
+        lookback_end = overall_start + timedelta(days=self.max_lookback_days)
         simulation_start = lookback_end
         simulation_end = min(
-            common_end,
-            simulation_start + timedelta(days=self.max_lookforward_months * 30),
+            overall_end,
+            simulation_start + timedelta(days=self.max_lookforward_days),
         )
 
         logger.info(f"Simulation period: {simulation_start} to {simulation_end}")
 
-        # Get simulation data for each symbol
-        simulation_data = {}
-        for symbol in self.symbols:
-            full_data = self.data_cache[symbol]
-            sim_mask = (full_data["datetime"] >= simulation_start) & (
-                full_data["datetime"] <= simulation_end
-            )
-            simulation_data[symbol] = full_data[sim_mask].reset_index(drop=True)
+        # Generate hourly ticks for the entire simulation period
+        hourly_ticks = self._generate_hourly_ticks(simulation_start, simulation_end)
 
-        # Find common timestamps across all symbols for synchronized trading
-        common_timestamps = self._find_common_timestamps(simulation_data)
+        logger.info(f"Generated {len(hourly_ticks)} hourly ticks for simulation")
 
-        logger.info(f"Found {len(common_timestamps)} common timestamps for simulation")
+        if len(hourly_ticks) < 2:
+            raise ValueError("Not enough hourly ticks for meaningful backtesting")
 
-        if len(common_timestamps) < 2:
-            raise ValueError("Not enough common timestamps for meaningful backtesting")
-
-        # Run the simulation
+        # Run the simulation using hourly ticks
         total_signals = 0
         total_transactions = 0
+        signals_skipped_trading_hours = 0
 
-        for i, timestamp in enumerate(common_timestamps):
-            # Get current prices for all symbols
-            current_prices = {}
+        # Get current prices for all symbols at this timestamp
+        current_prices = {}
 
+        for i, timestamp in enumerate(hourly_ticks):
             # Generate signals for each symbol
             for symbol in self.symbols:
+                # Check if within trading hours for this symbol
+                if not self._is_within_trading_hours(symbol, timestamp):
+                    signals_skipped_trading_hours += 1
+                    continue
+
                 # Get full historical data up to this point for strategy analysis
                 full_data = self.data_cache[symbol].copy()
                 current_data_mask = full_data["datetime"] <= timestamp
@@ -293,7 +326,7 @@ class BacktestingEngine:
                 if len(lookback_data) < 2:
                     continue  # Not enough lookback data
 
-                # Get current price
+                # Get current price (use the closest available price)
                 current_row = current_full_data.iloc[-1]
                 current_price = current_row["Close"]
                 current_prices[symbol] = current_price
@@ -316,19 +349,26 @@ class BacktestingEngine:
                     )
 
             # Log progress periodically
-            if i % 100 == 0:
-                portfolio_value = self.portfolio.get_portfolio_value(current_prices)
+            if i % 168 == 0:  # Every week (168 hours)
+                portfolio_value = (
+                    self.portfolio.get_portfolio_value(current_prices)
+                    if current_prices
+                    else self.initial_capital
+                )
                 logger.info(
-                    f"Progress: {i}/{len(common_timestamps)} ({100 * i / len(common_timestamps):.1f}%) | "
+                    f"Progress: {i}/{len(hourly_ticks)} ({100 * i / len(hourly_ticks):.1f}%) | "
                     f"Portfolio: ${portfolio_value:.2f}"
                 )
 
         # Calculate final results
         final_prices = {}
         for symbol in self.symbols:
-            final_data = simulation_data[symbol]
-            if not final_data.empty:
-                final_prices[symbol] = final_data.iloc[-1]["Close"]
+            data = self.data_cache[symbol]
+            if not data.empty:
+                # Get the last available price for each symbol
+                final_data = data[data["datetime"] <= simulation_end]
+                if not final_data.empty:
+                    final_prices[symbol] = final_data.iloc[-1]["Close"]
 
         final_portfolio_value = self.portfolio.get_portfolio_value(final_prices)
         total_return = self.portfolio.get_total_return(final_prices)
@@ -340,6 +380,8 @@ class BacktestingEngine:
             "total_return_percent": self.portfolio.get_return_percentage(final_prices),
             "total_signals_generated": total_signals,
             "total_transactions_executed": total_transactions,
+            "signals_skipped_trading_hours": signals_skipped_trading_hours,
+            "total_hourly_ticks": len(hourly_ticks),
             "simulation_start": simulation_start,
             "simulation_end": simulation_end,
             "symbols_traded": self.symbols,
@@ -351,7 +393,9 @@ class BacktestingEngine:
 
         logger.info(
             f"Backtesting complete. Total return: ${total_return:.2f} "
-            f"({self.portfolio.get_return_percentage(final_prices):.2f}%)"
+            f"({self.portfolio.get_return_percentage(final_prices):.2f}%) | "
+            f"Signals generated: {total_signals} | Transactions: {total_transactions} | "
+            f"Skipped (trading hours): {signals_skipped_trading_hours}"
         )
 
         return results

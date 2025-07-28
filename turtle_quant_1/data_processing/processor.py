@@ -75,11 +75,7 @@ class DataProcessor(BaseDataProcessor):
             logger.warning(
                 f"No data found for {symbol} in cache. Fetching from {self.storage}..."
             )
-            df = self.storage.load_ohlcv(
-                symbol=symbol,
-                start_date=start_date,
-                end_date=end_date,
-            )
+            df = self.storage.load_data(symbol=symbol)
 
         if df.empty:
             logger.warning(

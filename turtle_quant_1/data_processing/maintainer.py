@@ -1,17 +1,19 @@
 """Data maintainer for ensuring continuous historical data availability."""
 
 import logging
+import math
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
 
 import pandas as pd
+import holidays
 
 from turtle_quant_1.config import (
-    DEFAULT_MARKET_HOURS,
     LIVE_SYMBOLS,
     MAX_CANDLE_GAPS_TO_FILL,
-    MAX_HISTORY_MONTHS,
-    SYMBOL_MARKET_HOURS,
+    MAX_HISTORY_DAYS,
+    SYMBOL_MARKETS,
+    MARKET_HOURS,
 )
 from turtle_quant_1.data_processing.base import (
     BaseDataFetcher,
@@ -50,7 +52,9 @@ class DataMaintainer(BaseDataMaintainer):
         Returns:
             Dictionary with 'open', 'close', and 'timezone' keys
         """
-        return SYMBOL_MARKET_HOURS.get(symbol, DEFAULT_MARKET_HOURS)
+        return MARKET_HOURS.get(
+            SYMBOL_MARKETS.get(symbol, "NYSE"), MARKET_HOURS["NYSE"]
+        )
 
     def _get_symbol_open_time(self, symbol: str) -> str:
         """Get market open time for a symbol.
@@ -185,36 +189,33 @@ class DataMaintainer(BaseDataMaintainer):
 
         return False
 
-    def _is_weekend_gap(self, date1: datetime.date, date2: datetime.date) -> bool:
-        """Check if two dates are consecutive considering weekends.
+    def _is_weekend_date(self, date: datetime) -> bool:
+        """Check if a date is a weekend.
 
         Args:
-            date1: First date
-            date2: Second date
+            date: Date to check
 
         Returns:
-            True if dates are consecutive considering weekends, False otherwise
+            True if date is a weekend, False otherwise
         """
-        days_between = (date2 - date1).days
-        if days_between == 1:
-            return True
-        if days_between == 3:
-            # Check if the gap is over a weekend (Fri->Mon)
-            return date1.weekday() == 4 and date2.weekday() == 0
-        return False
+        return date.weekday() >= 5
 
-    def _is_holiday_gap(self, date1: datetime.date, date2: datetime.date) -> bool:
-        """Check if two dates are consecutive considering bank holidays.
+    def _is_holiday_date(self, date: datetime, symbol: str) -> bool:
+        """Check if a date is a bank holiday.
 
         Args:
-            date1: First date
-            date2: Second date
+            date: Date to check
 
         Returns:
-            True if dates are consecutive considering bank holidays, False otherwise
+            True if date is a bank holiday, False otherwise
         """
-        # TODO: Implement!
-        return False
+        market_code = SYMBOL_MARKETS.get(symbol, "NYSE")  # TODO: Handle LSE.
+        curr_year = datetime.now().year
+        years = [curr_year - i for i in range(math.ceil(MAX_HISTORY_DAYS / 365) + 1)]
+        holiday_dates = list(
+            holidays.financial_holidays(market_code, years=years).keys()
+        )
+        return date.date() in holiday_dates
 
     def _get_data_gaps(
         self,
@@ -252,15 +253,19 @@ class DataMaintainer(BaseDataMaintainer):
                 end_date = end_date.replace(tzinfo=None)
 
             # Generate expected market days for this symbol
-            current_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-            expected_market_days = []
+            expected_days_datetimes = []
 
-            while current_date <= end_date:
-                if current_date.weekday() < 5:  # Monday=0, Friday=4
-                    expected_market_days.append(current_date)
-                current_date += timedelta(days=1)
+            curr_datetime = start_date.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            while curr_datetime <= end_date:
+                if not self._is_weekend_date(
+                    curr_datetime
+                ) and not self._is_holiday_date(curr_datetime, symbol):
+                    expected_days_datetimes.append(curr_datetime)
+                curr_datetime += timedelta(days=1)
 
-            if not expected_market_days:
+            if not expected_days_datetimes:
                 return []
 
             # Get existing data dates
@@ -271,33 +276,36 @@ class DataMaintainer(BaseDataMaintainer):
                 data["date"] = data["datetime"].dt.date
                 existing_days = set(data["date"].unique())
 
-            # Convert expected_market_days to date objects for comparison
-            expected_days_set = set(day.date() for day in expected_market_days)
-            missing_days = sorted(expected_days_set - existing_days)
+            # Convert expected_days_datetimes to date objects for comparison
+            expected_days = set(day.date() for day in expected_days_datetimes)
+            missing_days = sorted(
+                [day for day in expected_days if day not in existing_days]
+            )
 
             if not missing_days:
                 return []
 
             # Group consecutive missing days into gap periods
-            gap_periods = []
+            gap_periods = []  # List of (market_open, market_close) datetimes
             gap_start = missing_days[0]
             gap_end = missing_days[0]
 
             for i in range(1, len(missing_days)):
-                current_day = missing_days[i]
+                curr_day = missing_days[i]
                 prev_day = missing_days[i - 1]
 
                 # Check if days are consecutive (accounting for weekends)
-                days_between = (current_day - prev_day).days
-                if days_between <= 3 and self._is_weekend_gap(prev_day, current_day):
-                    gap_end = current_day
+                days_between = (curr_day - prev_day).days
+                if days_between <= 3:
+                    # Count consecutive days as a single gap
+                    gap_end = curr_day
                 else:
                     # End current gap and start a new one
                     gap_periods.append(
                         self._convert_dates_to_market_hours(symbol, gap_start, gap_end)
                     )
-                    gap_start = current_day
-                    gap_end = current_day
+                    gap_start = curr_day
+                    gap_end = curr_day
 
             # Add the final gap
             gap_periods.append(
@@ -309,13 +317,13 @@ class DataMaintainer(BaseDataMaintainer):
         except Exception as e:
             logger.warning(f"Error finding data gaps for {symbol}: {str(e)}")
             # If we can't load data, consider all market days as gaps
-            if not expected_market_days:
+            if not expected_days_datetimes:
                 return []
             return [
                 self._convert_dates_to_market_hours(
                     symbol,
-                    expected_market_days[0].date(),
-                    expected_market_days[-1].date(),
+                    expected_days_datetimes[0].date(),
+                    expected_days_datetimes[-1].date(),
                 )
             ]
 
@@ -372,7 +380,7 @@ class DataMaintainer(BaseDataMaintainer):
         Args:
             symbol: Symbol to append gaps to.
             data: DataFrame with data.
-            start_date: Start date for the data. If None, uses MAX_HISTORY_MONTHS ago.
+            start_date: Start date for the data. If None, uses MAX_HISTORY_DAYS ago.
             end_date: End date for the data. If None, uses current time.
 
         Returns:
@@ -380,7 +388,7 @@ class DataMaintainer(BaseDataMaintainer):
         """
         # Set default dates if not provided
         end_date = end_date or datetime.now()
-        start_date = start_date or (end_date - timedelta(days=30 * MAX_HISTORY_MONTHS))
+        start_date = start_date or (end_date - timedelta(days=MAX_HISTORY_DAYS))
 
         existing_data = data
 
@@ -439,7 +447,7 @@ class DataMaintainer(BaseDataMaintainer):
             DataFrame with updated data.
         """
         end_date = end_date or datetime.now()
-        start_date = end_date - timedelta(days=30 * MAX_HISTORY_MONTHS)
+        start_date = end_date - timedelta(days=MAX_HISTORY_DAYS)
 
         logger.info(
             f"Ensuring continuous data for {symbol} from {start_date} to {end_date}"
@@ -451,6 +459,8 @@ class DataMaintainer(BaseDataMaintainer):
         # Fill any gaps found
         if gaps:
             logger.info(f"Found {len(gaps)} gaps in data for {symbol}")
+            for i, gap in enumerate(gaps):
+                logger.info(f"    - Gap {i}: {gap[0]} to {gap[1]}")
             data = self._fill_data_gaps(symbol, data, gaps)
         else:
             logger.info(f"No gaps found in data for {symbol}")

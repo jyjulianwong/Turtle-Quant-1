@@ -15,6 +15,7 @@ dependencies = [
     "fastapi[standard]>=0.116.1",
     "google-cloud-run>=0.10.17",
     "google-cloud-storage>=3.2.0",
+    "holidays>=0.77",
     "numpy>=2.3.2",
     "pandas>=2.3.1",
     "pyarrow>=18.0.0",
@@ -33,8 +34,12 @@ dev = [
     "uv-sort==0.6.0",
 ]
 notebook = [
+    "ipykernel>=6.30.0",
+    "ipython>=9.4.0",
     "jupyter>=1.1.1",
     "matplotlib>=3.10.3",
+    "nbconvert>=7.16.6",
+    "notebook>=7.4.4",
     "seaborn>=0.13.2",
 ]
 

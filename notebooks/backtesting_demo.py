@@ -2,6 +2,12 @@
 
 import logging
 
+from turtle_quant_1.config import (
+    BACKTESTING_SYMBOLS,
+    MAX_HISTORY_DAYS,
+    BACKTESTING_MAX_LOOKBACK_DAYS,
+    BACKTESTING_MAX_LOOKFORWARD_DAYS,
+)
 from turtle_quant_1.backtesting import BacktestingEngine
 from turtle_quant_1.strategies.engine import StrategyEngine
 from turtle_quant_1.strategies.linear_regression_strategy import (
@@ -36,11 +42,11 @@ def run_backtesting_default_example():
     # Start with $10,000 initial capital for demonstration
     backtesting_engine = BacktestingEngine(
         strategy_engine=strategy_engine,
-        symbols=["AAPL", "MSFT", "GOOG"],  # Using configured symbols
+        symbols=BACKTESTING_SYMBOLS,  # Using configured symbols
         initial_capital=10000.0,  # $10,000 starting capital
-        max_history_months=36,  # Load 3 years of data (36 months)
-        max_lookback_months=12,  # Use 1 year for strategy signals (12 months)
-        max_lookforward_months=12,  # Simulate 1 year of trading (12 months)
+        max_history_days=MAX_HISTORY_DAYS,  # Load 3 years of data (36 months)
+        max_lookback_days=BACKTESTING_MAX_LOOKBACK_DAYS,  # Use 1 year for strategy signals (12 months)
+        max_lookforward_days=BACKTESTING_MAX_LOOKFORWARD_DAYS,  # Simulate 1 year of trading (12 months)
     )
 
     # Run the backtest
@@ -126,11 +132,11 @@ def run_backtesting_zero_capital_example():
     # Create backtesting engine starting with $0
     backtesting_engine = BacktestingEngine(
         strategy_engine=strategy_engine,
-        symbols=["AAPL"],  # Single symbol for simplicity
+        symbols=BACKTESTING_SYMBOLS,
         initial_capital=0.0,  # Start with $0
-        max_history_months=24,  # Load 2 years of data (24 months)
-        max_lookback_months=12,  # Use 1 year for strategy signals (12 months)
-        max_lookforward_months=6,  # 6 months simulation
+        max_history_days=MAX_HISTORY_DAYS,  # Load 2 years of data (24 months)
+        max_lookback_days=BACKTESTING_MAX_LOOKBACK_DAYS,  # Use 1 year for strategy signals (12 months)
+        max_lookforward_days=BACKTESTING_MAX_LOOKFORWARD_DAYS,  # 6 months simulation
     )
 
     # Run the backtest

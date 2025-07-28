@@ -1,4 +1,13 @@
 repos:
+  - repo: local
+    hooks:
+      - id: jupyter-nbconvert
+        name:  jupyter-nbconvert
+        entry: jupyter nbconvert --clear-output
+        language: system
+        stages: [pre-commit]
+        files: \.ipynb$
+  
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
     rev: 0.6.9

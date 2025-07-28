@@ -913,6 +913,18 @@ wheels = [
 ]
 
 [[package]]
+name = "holidays"
+version = "0.77"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dateutil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7f/c8/4dbb68427652f9b47ff3f77676364eea9c7de244c5a851a63388703b45c7/holidays-0.77.tar.gz", hash = "sha256:61c537c7a159d480a1ab07a09ccc602990ecbeed4e2331c75ea46cf0e68b0513", size = 725838 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/77/e9e0920d17b5f91b32fcfd55c9e0f4e5e9e95acf7f134b8c204ff16c7cc1/holidays-0.77-py3-none-any.whl", hash = "sha256:74e9e7cbf6eca8dfc672b1c2a9b4e64b1b51c428abb880964440e25c2f812486", size = 1189765 },
+]
+
+[[package]]
 name = "httpcore"
 version = "1.0.9"
 source = { registry = "https://pypi.org/simple" }
@@ -2890,6 +2902,7 @@ dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "google-cloud-run" },
     { name = "google-cloud-storage" },
+    { name = "holidays" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pyarrow" },
@@ -2908,8 +2921,12 @@ dev = [
     { name = "uv-sort" },
 ]
 notebook = [
+    { name = "ipykernel" },
+    { name = "ipython" },
     { name = "jupyter" },
     { name = "matplotlib" },
+    { name = "nbconvert" },
+    { name = "notebook" },
     { name = "seaborn" },
 ]
 
@@ -2919,6 +2936,7 @@ requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.116.1" },
     { name = "google-cloud-run", specifier = ">=0.10.17" },
     { name = "google-cloud-storage", specifier = ">=3.2.0" },
+    { name = "holidays", specifier = ">=0.77" },
     { name = "numpy", specifier = ">=2.3.2" },
     { name = "pandas", specifier = ">=2.3.1" },
     { name = "pyarrow", specifier = ">=18.0.0" },
@@ -2937,8 +2955,12 @@ dev = [
     { name = "uv-sort", specifier = "==0.6.0" },
 ]
 notebook = [
+    { name = "ipykernel", specifier = ">=6.30.0" },
+    { name = "ipython", specifier = ">=9.4.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "matplotlib", specifier = ">=3.10.3" },
+    { name = "nbconvert", specifier = ">=7.16.6" },
+    { name = "notebook", specifier = ">=7.4.4" },
     { name = "seaborn", specifier = ">=0.13.2" },
 ]
 

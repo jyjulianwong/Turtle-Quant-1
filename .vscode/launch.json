@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Backtesting Demo",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "notebooks.backtesting_demo",
+            "args": [],
+        }
+    ]
+} 

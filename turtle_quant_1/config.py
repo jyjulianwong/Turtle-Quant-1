@@ -37,28 +37,35 @@ PROJECT_ROOT = Path(__file__).parent.parent
 PACKAGE_ROOT = Path(__file__).parent
 
 CANDLE_UNIT = "HOUR"
-MAX_HISTORY_MONTHS = 18
-MAX_CANDLE_GAPS_TO_FILL = 0  # TODO: Reset once bank holidays are handled
+MAX_HISTORY_DAYS = 700  # The history limit for YFinance is 730 days
+MAX_CANDLE_GAPS_TO_FILL = 100
 
-# Symbol-specific market hours configuration (UTC times)
-# Format: "symbol": {"open": "HH:MM", "close": "HH:MM", "timezone": "description"}
-SYMBOL_MARKET_HOURS = {
-    # US Stocks (NYSE/NASDAQ) - 9:30 AM to 4:30 PM EST = 14:30 to 20:30 UTC (during standard time)
-    "MSFT": {"open": "14:30", "close": "20:30", "timezone": "US_EASTERN"},
-    "GOOG": {"open": "14:30", "close": "20:30", "timezone": "US_EASTERN"},
-    # Example: European stocks (placeholder for future expansion)
-    # "ASML": {"open": "08:00", "close": "16:30", "timezone": "EUROPE_AMSTERDAM"},
-    # Example: Asian stocks (placeholder for future expansion)
-    # "TSM": {"open": "01:00", "close": "05:30", "timezone": "ASIA_TAIPEI"},
-    # Example: Forex (24/5 trading, placeholder)
-    # "EURUSD": {"open": "22:00", "close": "22:00", "timezone": "24_HOUR_SUN_TO_FRI"},
+MARKET_HOURS = {
+    "NYSE": {
+        "open": "14:30",
+        "close": "21:00",
+    },
+    "XECB": {
+        "open": "08:00",
+        "close": "16:30",
+    },
+    "ECB": {
+        "open": "08:00",
+        "close": "16:30",
+    },
+    "LSE": {
+        "open": "08:00",
+        "close": "16:30",
+    },
 }
 
-# Default market hours for symbols not explicitly configured
-DEFAULT_MARKET_HOURS = {"open": "14:30", "close": "20:30", "timezone": "US_EASTERN"}
+SYMBOL_MARKETS = {
+    "MSFT": "NYSE",
+    "GOOG": "NYSE",
+}
 
-BACKTESTING_MAX_LOOKBACK_MONTHS = 12
-BACKTESTING_MAX_LOOKFORWARD_MONTHS = 6
+BACKTESTING_MAX_LOOKBACK_DAYS = 365
+BACKTESTING_MAX_LOOKFORWARD_DAYS = 355
 BACKTESTING_SYMBOLS = ["MSFT", "GOOG"]
 
 LIVE_SYMBOLS = ["MSFT", "GOOG"]
