@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: Backtesting Demo",
+            "name": "Python Debugger: Backtesting",
             "type": "debugpy",
             "request": "launch",
-            "module": "notebooks.backtesting_demo",
+            "module": "turtle_quant_1.backtesting.main",
             "args": [],
         },
         {

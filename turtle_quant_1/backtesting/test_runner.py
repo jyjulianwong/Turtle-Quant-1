@@ -1,4 +1,4 @@
-"""Example usage of the backtesting engine with test case structure."""
+"""Test runner for backtesting engine."""
 
 import logging
 from dataclasses import dataclass
@@ -12,14 +12,8 @@ from turtle_quant_1.config import (
 )
 from turtle_quant_1.backtesting import BacktestingEngine
 from turtle_quant_1.strategies.engine import StrategyEngine
-from turtle_quant_1.strategies.linear_regression_strategy import (
-    LinearRegressionStrategy,
-)
 
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -31,22 +25,15 @@ class BacktestingTestCase:
     description: str
     strategy_engine: StrategyEngine
     initial_capital: float
-    symbols: List[str] = None
-    max_history_days: int = None
-    max_lookback_days: int = None
-    max_lookforward_days: int = None
+    symbols: List[str] = BACKTESTING_SYMBOLS
+    max_history_days: int = MAX_HISTORY_DAYS
+    max_lookback_days: int = BACKTESTING_MAX_LOOKBACK_DAYS
+    max_lookforward_days: int = BACKTESTING_MAX_LOOKFORWARD_DAYS
     expected_results: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
         """Set default values after initialization."""
-        if self.symbols is None:
-            self.symbols = BACKTESTING_SYMBOLS
-        if self.max_history_days is None:
-            self.max_history_days = MAX_HISTORY_DAYS
-        if self.max_lookback_days is None:
-            self.max_lookback_days = BACKTESTING_MAX_LOOKBACK_DAYS
-        if self.max_lookforward_days is None:
-            self.max_lookforward_days = BACKTESTING_MAX_LOOKFORWARD_DAYS
+        pass
 
 
 class BacktestingTestRunner:
@@ -80,7 +67,7 @@ class BacktestingTestRunner:
         self, test_case: BacktestingTestCase, results: Dict[str, Any]
     ):
         """Validate results against expected outcomes."""
-        expectations = test_case.expected_results
+        expectations = test_case.expected_results or {}
 
         for key, expected_value in expectations.items():
             if key in results:
@@ -209,68 +196,3 @@ class BacktestingTestRunner:
 
         self._print_summary()
         return self.results
-
-
-def create_test_cases() -> List[BacktestingTestCase]:
-    """Create predefined test cases for backtesting."""
-    test_cases = []
-
-    linear_regression_strategy = LinearRegressionStrategy(
-        name="LinearRegression",
-    )
-
-    # Test Case 1: Zero capital test
-    strategy_engine_aggressive = StrategyEngine(
-        strategies=[linear_regression_strategy],
-        weights=[1.0],
-        buy_threshold=0.1,
-        sell_threshold=-0.1,
-    )
-
-    test_cases.append(
-        BacktestingTestCase(
-            name="zero_capital",
-            description="Test with $0 starting capital to verify no BUY orders are executed",
-            strategy_engine=strategy_engine_aggressive,
-            initial_capital=0.0,
-            expected_results={
-                "total_transactions": 0
-            },  # Expect no transactions with $0
-        )
-    )
-
-    # Test Case 2: Standard backtesting with moderate capital
-    strategy_engine = StrategyEngine(
-        strategies=[linear_regression_strategy],
-        weights=[1.0],
-        buy_threshold=0.2,
-        sell_threshold=-0.2,
-    )
-
-    test_cases.append(
-        BacktestingTestCase(
-            name="default",
-            description="Standard backtesting with $10,000 initial capital",
-            strategy_engine=strategy_engine,
-            initial_capital=10000.0,
-        )
-    )
-
-    return test_cases
-
-
-def run_backtesting_tests():
-    """Main function to run all backtesting tests."""
-    # Create test cases
-    test_cases = create_test_cases()
-
-    # Create and run test runner
-    runner = BacktestingTestRunner(test_cases)
-    results = runner.run_all_tests()
-
-    logger.info("All backtesting tests completed!")
-    return results
-
-
-if __name__ == "__main__":
-    results = run_backtesting_tests()

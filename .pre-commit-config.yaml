@@ -28,6 +28,15 @@ repos:
         args: [ --fix, --config, pyproject.toml ]
       # Run the formatter.
       - id: ruff-format
+  
+  - repo: local
+    hooks:
+      - id: pyrefly
+        name: pyrefly
+        entry: pyrefly check --config pyproject.toml
+        language: system
+        stages: [pre-commit]
+        files: \.py$
 
   - repo: https://github.com/antonbabenko/pre-commit-terraform
     rev: v1.86.0
