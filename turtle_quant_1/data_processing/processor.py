@@ -60,8 +60,8 @@ class DataProcessor(BaseDataProcessor):
 
         Args:
             symbol: Symbol to load data for.
-            start_date: Start date for the data.
-            end_date: End date for the data.
+            start_date: Timezone-aware start date to fetch data from.
+            end_date: Timezone-aware end date to fetch data up to.
             impute_data: Whether to impute data.
 
         Returns:

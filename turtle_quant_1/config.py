@@ -40,22 +40,59 @@ CANDLE_UNIT = "HOUR"
 MAX_HISTORY_DAYS = 700  # The history limit for YFinance is 730 days
 MAX_CANDLE_GAPS_TO_FILL = 100
 
+_gcloud_region_to_pytz_dict = {
+    "us-central1": "America/Chicago",
+    "us-east1": "America/New_York",
+    "us-east4": "America/New_York",
+    "us-west1": "America/Los_Angeles",
+    "us-west2": "America/Los_Angeles",
+    "us-west3": "America/Denver",
+    "us-west4": "America/Los_Angeles",
+    "northamerica-northeast1": "America/Toronto",
+    "southamerica-east1": "America/Sao_Paulo",
+    "europe-central2": "Europe/Warsaw",
+    "europe-north1": "Europe/Helsinki",
+    "europe-west1": "Europe/Brussels",
+    "europe-west2": "Europe/London",
+    "europe-west3": "Europe/Frankfurt",
+    "europe-west4": "Europe/Amsterdam",
+    "asia-east1": "Asia/Taipei",
+    "asia-east2": "Asia/Hong_Kong",
+    "asia-northeast1": "Asia/Tokyo",
+    "asia-northeast2": "Asia/Osaka",
+    "asia-south1": "Asia/Kolkata",
+    "asia-southeast1": "Asia/Singapore",
+    "asia-southeast2": "Asia/Jakarta",
+    "australia-southeast1": "Australia/Sydney",
+    "me-west1": "Asia/Dubai",
+    "me-central1": "Asia/Riyadh",
+    "africa-south1": "Africa/Johannesburg",
+}
+HOST_TIMEZONE = "Europe/London"  # Default to London
+if GCLOUD_REGION and ENV == "p":
+    HOST_TIMEZONE = _gcloud_region_to_pytz_dict[GCLOUD_REGION]
+
+# Timezones are necessary to ensure all timestamps are timezone-aware during conversion steps
 MARKET_HOURS = {
     "NYSE": {
-        "open": "14:30",
-        "close": "21:00",
+        "opening": "09:30",
+        "closing": "15:30",
+        "timezone": "America/New_York",
     },
     "XECB": {
-        "open": "08:00",
-        "close": "16:30",
+        "opening": "08:00",
+        "closing": "16:30",
+        "timezone": "Europe/Paris",
     },
     "ECB": {
-        "open": "08:00",
-        "close": "16:30",
+        "opening": "08:00",
+        "closing": "16:30",
+        "timezone": "Europe/Paris",
     },
     "LSE": {
-        "open": "08:00",
-        "close": "16:30",
+        "opening": "08:00",
+        "closing": "16:30",
+        "timezone": "Europe/London",
     },
 }
 
@@ -65,7 +102,7 @@ SYMBOL_MARKETS = {
 }
 
 BACKTESTING_MAX_LOOKBACK_DAYS = 365
-BACKTESTING_MAX_LOOKFORWARD_DAYS = 355
+BACKTESTING_MAX_LOOKFORWARD_DAYS = 335  # (700 - 365)
 BACKTESTING_SYMBOLS = ["MSFT", "GOOG"]
 
 LIVE_SYMBOLS = ["MSFT", "GOOG"]

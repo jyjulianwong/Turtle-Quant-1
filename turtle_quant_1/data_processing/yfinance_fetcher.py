@@ -24,27 +24,29 @@ class YFinanceDataFetcher(BaseDataFetcher):
         super().__init__(symbols)
         self.tickers = {symbol: yf.Ticker(symbol) for symbol in symbols}
 
-    def _fetch_hourly_ohlcv_batch(
+    def fetch_hourly_ohlcv(
         self,
         symbol: str,
         start_date: datetime,
         end_date: datetime,
     ) -> pd.DataFrame:
-        """Fetch data for a single year period.
+        """Fetch hourly OHLCV data from YFinance.
 
         Args:
             symbol: The symbol to fetch data for.
-            start_date: Start date for the data.
-            end_date: End date for the data.
+            start_date: Timezone-aware start date to fetch data from.
+            end_date: Timezone-aware end date to fetch data up to.
 
         Returns:
-            DataFrame with OHLCV data for the specified period.
+            DataFrame with columns: datetime, Open, High, Low, Close, Volume.
         """
+        logger.info(f"Fetching data for {symbol} from {start_date} to {end_date}")
+
         if symbol not in self.tickers:
             raise ValueError(f"Symbol {symbol} not initialized")
 
         try:
-            # Fetch data for this period
+            # Fetch all data in one go
             df = self.tickers[symbol].history(
                 start=start_date,
                 end=end_date,
@@ -60,17 +62,6 @@ class YFinanceDataFetcher(BaseDataFetcher):
                     columns=["datetime", "Open", "High", "Low", "Close", "Volume"]
                 )
 
-            # Rename columns to match our standard format
-            df = df.rename(
-                columns={
-                    "Open": "Open",
-                    "High": "High",
-                    "Low": "Low",
-                    "Close": "Close",
-                    "Volume": "Volume",
-                }
-            )
-
             # Reset index to make datetime a column
             df = df.reset_index()
 
@@ -85,17 +76,21 @@ class YFinanceDataFetcher(BaseDataFetcher):
                 # If none of the above, the first column should be the datetime
                 df.columns = ["datetime"] + list(df.columns[1:])
 
-            # Ensure datetime column exists and convert timezone-aware datetime to naive
+            # TODO: Check timezone is as expected based on config.
+            # Keep timezone-aware timestamps as they are - no conversion
+            # Just ensure it's a datetime type
             if "datetime" in df.columns:
                 df["datetime"] = pd.to_datetime(df["datetime"])
-                # Convert timezone-aware datetime to naive (UTC) to avoid comparison issues
-                if df["datetime"].dt.tz is not None:
-                    df["datetime"] = (
-                        df["datetime"].dt.tz_convert("UTC").dt.tz_localize(None)
-                    )
 
-            # Select only the columns we need
-            return df[["datetime", "Open", "High", "Low", "Close", "Volume"]]
+            # Select only the columns we need and sort by datetime
+            result_df = df[
+                ["datetime", "Open", "High", "Low", "Close", "Volume"]
+            ].copy()
+            result_df = result_df.sort_values("datetime").reset_index(drop=True)
+
+            logger.info(f"Successfully fetched {len(result_df)} records for {symbol}")
+
+            return result_df
 
         except Exception as e:
             logger.error(
@@ -104,74 +99,3 @@ class YFinanceDataFetcher(BaseDataFetcher):
             return pd.DataFrame(
                 columns=["datetime", "Open", "High", "Low", "Close", "Volume"]
             )
-
-    def fetch_hourly_ohlcv(
-        self,
-        symbol: str,
-        start_date: datetime,
-        end_date: datetime,
-    ) -> pd.DataFrame:
-        """Fetch hourly OHLCV data from YFinance year by year.
-
-        Args:
-            symbol: The symbol to fetch data for.
-            start_date: Start date for the data.
-            end_date: End date for the data.
-
-        Returns:
-            DataFrame with columns: datetime, open, high, low, close, volume.
-        """
-        logger.info(f"Fetching data for {symbol} from {start_date} to {end_date}")
-
-        # List to store yearly data
-        yearly_dataframes = []
-
-        # Calculate year boundaries for chunked downloading
-        current_start = start_date
-
-        while current_start < end_date:
-            # Calculate end of current year or end_date, whichever is earlier
-            year_end = datetime(current_start.year + 1, 1, 1)
-            current_end = min(year_end, end_date)
-
-            logger.info(
-                f"Fetching {symbol} data for period: {current_start} to {current_end}"
-            )
-
-            # Fetch data for this year
-            year_df = self._fetch_hourly_ohlcv_batch(
-                symbol=symbol,
-                start_date=current_start,
-                end_date=current_end,
-            )
-
-            # Add to list if not empty
-            if not year_df.empty:
-                yearly_dataframes.append(year_df)
-
-            # Move to next year
-            current_start = year_end
-
-        # Combine all yearly dataframes
-        if not yearly_dataframes:
-            logger.warning(f"No data found for {symbol} in the specified date range")
-            return pd.DataFrame(
-                columns=["datetime", "Open", "High", "Low", "Close", "Volume"]
-            )
-
-        # Concatenate all yearly data
-        combined_df = pd.concat(yearly_dataframes, ignore_index=True)
-
-        # Ensure datetime column is properly formatted
-        combined_df["datetime"] = pd.to_datetime(combined_df["datetime"])
-
-        # Sort by datetime and remove any duplicates
-        combined_df = (
-            combined_df.sort_values("datetime")
-            .drop_duplicates(subset=["datetime"], keep="last")
-            .reset_index(drop=True)
-        )
-
-        logger.info(f"Successfully fetched {len(combined_df)} records for {symbol}")
-
-        return combined_df

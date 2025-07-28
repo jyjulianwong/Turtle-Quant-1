@@ -15,7 +15,7 @@ Usage Example:
     from turtle_quant_1.data_processing import DataProcessor
 
     # Create a strategy
-    strategy = LinearRegressionStrategy(lookback_periods=20)
+    strategy = LinearRegressionStrategy(lookback_candles=20)
 
     # Create an engine with the strategy
     engine = StrategyEngine(

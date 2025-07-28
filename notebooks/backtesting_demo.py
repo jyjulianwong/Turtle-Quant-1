@@ -1,6 +1,8 @@
-"""Example usage of the backtesting engine."""
+"""Example usage of the backtesting engine with test case structure."""
 
 import logging
+from dataclasses import dataclass
+from typing import List, Dict, Any, Optional
 
 from turtle_quant_1.config import (
     BACKTESTING_SYMBOLS,
@@ -21,155 +23,254 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def run_backtesting_default_example():
-    """Run a complete backtesting example."""
-    logger.info("Starting backtesting example...")
+@dataclass
+class BacktestingTestCase:
+    """Configuration for a backtesting test case."""
 
-    # Create strategies
-    linear_strategy = LinearRegressionStrategy(
-        lookback_periods=50, name="LinearRegression_50"
-    )
+    name: str
+    description: str
+    strategy_engine: StrategyEngine
+    initial_capital: float
+    symbols: List[str] = None
+    max_history_days: int = None
+    max_lookback_days: int = None
+    max_lookforward_days: int = None
+    expected_results: Optional[Dict[str, Any]] = None
 
-    # Create strategy engine
-    strategy_engine = StrategyEngine(
-        strategies=[linear_strategy],
-        weights=[1.0],  # Single strategy gets full weight
-        buy_threshold=0.2,  # Lower threshold for more trading
-        sell_threshold=-0.2,  # Higher threshold for more trading
-    )
+    def __post_init__(self):
+        """Set default values after initialization."""
+        if self.symbols is None:
+            self.symbols = BACKTESTING_SYMBOLS
+        if self.max_history_days is None:
+            self.max_history_days = MAX_HISTORY_DAYS
+        if self.max_lookback_days is None:
+            self.max_lookback_days = BACKTESTING_MAX_LOOKBACK_DAYS
+        if self.max_lookforward_days is None:
+            self.max_lookforward_days = BACKTESTING_MAX_LOOKFORWARD_DAYS
 
-    # Create backtesting engine
-    # Start with $10,000 initial capital for demonstration
-    backtesting_engine = BacktestingEngine(
-        strategy_engine=strategy_engine,
-        symbols=BACKTESTING_SYMBOLS,  # Using configured symbols
-        initial_capital=10000.0,  # $10,000 starting capital
-        max_history_days=MAX_HISTORY_DAYS,  # Load 3 years of data (36 months)
-        max_lookback_days=BACKTESTING_MAX_LOOKBACK_DAYS,  # Use 1 year for strategy signals (12 months)
-        max_lookforward_days=BACKTESTING_MAX_LOOKFORWARD_DAYS,  # Simulate 1 year of trading (12 months)
-    )
 
-    # Run the backtest
-    try:
+class BacktestingTestRunner:
+    """Runner for executing and reporting backtesting test cases."""
+
+    def __init__(self, test_cases: List[BacktestingTestCase]):
+        self.test_cases = test_cases
+        self.results = []
+
+    def _run_single_test(self, test_case: BacktestingTestCase) -> Dict[str, Any]:
+        """Run a single test case."""
+        # Create backtesting engine
+        backtesting_engine = BacktestingEngine(
+            strategy_engine=test_case.strategy_engine,
+            symbols=test_case.symbols,
+            initial_capital=test_case.initial_capital,
+            max_history_days=test_case.max_history_days,
+            max_lookback_days=test_case.max_lookback_days,
+            max_lookforward_days=test_case.max_lookforward_days,
+        )
+
+        # Run the backtest
         results = backtesting_engine.run_backtest()
 
-        # Print results
-        print("\n" + "=" * 60)
-        print("BACKTESTING RESULTS")
-        print("=" * 60)
+        # Print results for this test case
+        self._print_test_results(test_case, results)
+
+        return results
+
+    def _validate_test_results(
+        self, test_case: BacktestingTestCase, results: Dict[str, Any]
+    ):
+        """Validate results against expected outcomes."""
+        expectations = test_case.expected_results
+
+        for key, expected_value in expectations.items():
+            if key in results:
+                actual_value = results[key]
+                if actual_value != expected_value:
+                    logger.warning(
+                        f"Test case '{test_case.name}': Expected {key}={expected_value}, "
+                        f"but got {actual_value}"
+                    )
+
+    def _print_test_results(
+        self, test_case: BacktestingTestCase, results: Dict[str, Any]
+    ):
+        """Print results for a single test case."""
+        print("\n" + "=" * 70)
+        print(f"TEST CASE: {test_case.name}")
+        print(f"Description: {test_case.description}")
+        print("=" * 70)
+
+        # Core metrics
         print(f"Initial Capital: ${results['initial_capital']:,.2f}")
         print(f"Final Portfolio Value: ${results['final_portfolio_value']:,.2f}")
         print(f"Total Return: ${results['total_return_dollars']:,.2f}")
         print(f"Return Percentage: {results['total_return_percent']:.2f}%")
+
+        # Simulation details
         print(
             f"Simulation Period: {results['simulation_start'].strftime('%Y-%m-%d')} to {results['simulation_end'].strftime('%Y-%m-%d')}"
         )
         print(f"Symbols Traded: {results['symbols_traded']}")
-        print(f"Total Signals Generated: {results['total_signals_generated']:,}")
-        print(
-            f"Total Transactions Executed: {results['total_transactions_executed']:,}"
-        )
+        print(f"Total Signals Generated: {results['total_signals']:,}")
+        print(f"Total Transactions Executed: {results['total_transactions']:,}")
         print(f"Final Cash: ${results['final_cash']:,.2f}")
         print(f"Final Holdings: {results['final_holdings']}")
 
-        # Show transaction history
+        # Transaction analysis
+        self._print_transaction_analysis(results)
+
+        print("=" * 70)
+
+    def _print_transaction_analysis(self, results: Dict[str, Any]):
+        """Print detailed transaction analysis."""
         transaction_history = results["transaction_history"]
-        if not transaction_history.empty:
-            print("\nFirst 10 Transactions:")
-            print(transaction_history.head(10).to_string(index=False))
 
-            print("\nLast 10 Transactions:")
-            print(transaction_history.tail(10).to_string(index=False))
+        if transaction_history.empty:
+            print("\nNo transactions were executed during the simulation.")
+            return
 
-            # Transaction summary
-            buy_transactions = transaction_history[
-                transaction_history["action"] == "BUY"
-            ]
-            sell_transactions = transaction_history[
-                transaction_history["action"] == "SELL"
-            ]
+        # Basic transaction stats
+        buy_transactions = transaction_history[transaction_history["action"] == "BUY"]
+        sell_transactions = transaction_history[transaction_history["action"] == "SELL"]
 
-            print("\nTransaction Summary:")
-            print(f"  Total Buy Orders: {len(buy_transactions)}")
-            print(f"  Total Sell Orders: {len(sell_transactions)}")
-            print(
-                f"  Total Volume Traded: ${transaction_history['total_value'].sum():,.2f}"
+        print("\nTransaction Summary:")
+        print(f"  Total Buy Orders: {len(buy_transactions)}")
+        print(f"  Total Sell Orders: {len(sell_transactions)}")
+        print(
+            f"  Total Volume Traded: ${transaction_history['total_value'].sum():,.2f}"
+        )
+
+        if not buy_transactions.empty:
+            print(f"  Average Buy Price: ${buy_transactions['price'].mean():.2f}")
+        if not sell_transactions.empty:
+            print(f"  Average Sell Price: ${sell_transactions['price'].mean():.2f}")
+
+        # Show sample transactions
+        if len(transaction_history) > 0:
+            print(f"\nFirst {min(5, len(transaction_history))} Transactions:")
+            print(transaction_history.head(5).to_string(index=False))
+
+            if len(transaction_history) > 5:
+                print(f"\nLast {min(5, len(transaction_history))} Transactions:")
+                print(transaction_history.tail(5).to_string(index=False))
+
+    def _print_summary(self):
+        """Print overall test summary."""
+        passed_tests = [r for r in self.results if r["status"] == "PASSED"]
+        failed_tests = [r for r in self.results if r["status"] == "FAILED"]
+
+        print("\n" + "=" * 70)
+        print("TEST EXECUTION SUMMARY")
+        print("=" * 70)
+        print(f"Total Test Cases: {len(self.test_cases)}")
+        print(f"Passed: {len(passed_tests)}")
+        print(f"Failed: {len(failed_tests)}")
+
+        if failed_tests:
+            print("\nFailed Tests:")
+            for result in failed_tests:
+                print(f"  - {result['test_case'].name}: {result['error']}")
+
+        if passed_tests:
+            print("\nTest Results Summary:")
+            for result in passed_tests:
+                test_case = result["test_case"]
+                print(
+                    f"  {test_case.name}:\t${result['total_return_dollars']:,.2f}\treturn ({result['total_return_percent']:.2f}%)"
+                )
+
+        print("=" * 70)
+
+    def run_all_tests(self) -> List[Dict[str, Any]]:
+        """Run all test cases and return results."""
+        logger.info(f"Running {len(self.test_cases)} backtesting test cases...")
+
+        for i, test_case in enumerate(self.test_cases, 1):
+            logger.info(
+                f"Running test case {i}/{len(self.test_cases)}: {test_case.name}"
             )
 
-            if not buy_transactions.empty:
-                print(f"  Average Buy Price: ${buy_transactions['price'].mean():.2f}")
-            if not sell_transactions.empty:
-                print(f"  Average Sell Price: ${sell_transactions['price'].mean():.2f}")
-        else:
-            print("\nNo transactions were executed during the simulation.")
+            try:
+                result = self._run_single_test(test_case)
+                result["test_case"] = test_case
+                result["status"] = "PASSED"
+                self.results.append(result)
 
-        print("=" * 60)
+                # Validate expected outcomes if provided
+                if test_case.expected_results:
+                    self._validate_test_results(test_case, result)
 
-        return results
+            except Exception as e:
+                logger.error(f"Test case '{test_case.name}' failed: {e}")
+                self.results.append(
+                    {"test_case": test_case, "status": "FAILED", "error": str(e)}
+                )
+                continue
 
-    except Exception as e:
-        logger.error(f"Backtesting failed: {e}")
-        raise
+        self._print_summary()
+        return self.results
 
 
-def run_backtesting_zero_capital_example():
-    """Run backtesting example starting with zero capital."""
-    logger.info("Starting zero-capital backtesting example...")
+def create_test_cases() -> List[BacktestingTestCase]:
+    """Create predefined test cases for backtesting."""
+    test_cases = []
 
-    # Create a simple strategy
-    linear_strategy = LinearRegressionStrategy(
-        lookback_periods=20, name="LinearRegression_20"
+    linear_regression_strategy = LinearRegressionStrategy(
+        name="LinearRegression",
     )
 
-    # Create strategy engine with more aggressive thresholds
-    strategy_engine = StrategyEngine(
-        strategies=[linear_strategy],
+    # Test Case 1: Zero capital test
+    strategy_engine_aggressive = StrategyEngine(
+        strategies=[linear_regression_strategy],
         weights=[1.0],
-        buy_threshold=0.1,  # Very low threshold
-        sell_threshold=-0.1,  # Very high threshold
+        buy_threshold=0.1,
+        sell_threshold=-0.1,
     )
 
-    # Create backtesting engine starting with $0
-    backtesting_engine = BacktestingEngine(
-        strategy_engine=strategy_engine,
-        symbols=BACKTESTING_SYMBOLS,
-        initial_capital=0.0,  # Start with $0
-        max_history_days=MAX_HISTORY_DAYS,  # Load 2 years of data (24 months)
-        max_lookback_days=BACKTESTING_MAX_LOOKBACK_DAYS,  # Use 1 year for strategy signals (12 months)
-        max_lookforward_days=BACKTESTING_MAX_LOOKFORWARD_DAYS,  # 6 months simulation
-    )
-
-    # Run the backtest
-    try:
-        results = backtesting_engine.run_backtest()
-
-        print("\n" + "=" * 60)
-        print("ZERO-CAPITAL BACKTESTING RESULTS")
-        print("=" * 60)
-        print(f"Initial Capital: ${results['initial_capital']:,.2f}")
-        print(f"Final Portfolio Value: ${results['final_portfolio_value']:,.2f}")
-        print(f"Total Return: ${results['total_return_dollars']:,.2f}")
-        print(f"Signals Generated: {results['total_signals_generated']:,}")
-        print(f"Transactions Executed: {results['total_transactions_executed']:,}")
-        print(
-            "NOTE: With $0 starting capital, no BUY orders should have been executed."
+    test_cases.append(
+        BacktestingTestCase(
+            name="zero_capital",
+            description="Test with $0 starting capital to verify no BUY orders are executed",
+            strategy_engine=strategy_engine_aggressive,
+            initial_capital=0.0,
+            expected_results={
+                "total_transactions": 0
+            },  # Expect no transactions with $0
         )
-        print("=" * 60)
+    )
 
-        return results
+    # Test Case 2: Standard backtesting with moderate capital
+    strategy_engine = StrategyEngine(
+        strategies=[linear_regression_strategy],
+        weights=[1.0],
+        buy_threshold=0.2,
+        sell_threshold=-0.2,
+    )
 
-    except Exception as e:
-        logger.error(f"Zero-capital backtesting failed: {e}")
-        raise
+    test_cases.append(
+        BacktestingTestCase(
+            name="default",
+            description="Standard backtesting with $10,000 initial capital",
+            strategy_engine=strategy_engine,
+            initial_capital=10000.0,
+        )
+    )
+
+    return test_cases
+
+
+def run_backtesting_tests():
+    """Main function to run all backtesting tests."""
+    # Create test cases
+    test_cases = create_test_cases()
+
+    # Create and run test runner
+    runner = BacktestingTestRunner(test_cases)
+    results = runner.run_all_tests()
+
+    logger.info("All backtesting tests completed!")
+    return results
 
 
 if __name__ == "__main__":
-    # Run the main example with initial capital
-    main_results = run_backtesting_default_example()
-
-    # Run the zero-capital example
-    zero_results = run_backtesting_zero_capital_example()
-
-    print("\nExample completed successfully!")
-    print(f"Default example return: ${main_results['total_return_dollars']:,.2f}")
-    print(f"Zero-capital example return: ${zero_results['total_return_dollars']:,.2f}")
+    results = run_backtesting_tests()

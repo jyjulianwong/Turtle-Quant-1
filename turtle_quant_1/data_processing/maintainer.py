@@ -1,23 +1,25 @@
 """Data maintainer for ensuring continuous historical data availability."""
 
 import logging
-import math
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
 
 import pandas as pd
-import holidays
+import pytz
 
 from turtle_quant_1.config import (
     LIVE_SYMBOLS,
     MAX_CANDLE_GAPS_TO_FILL,
     MAX_HISTORY_DAYS,
-    SYMBOL_MARKETS,
-    MARKET_HOURS,
+    HOST_TIMEZONE,
 )
 from turtle_quant_1.data_processing.base import (
     BaseDataFetcher,
     BaseDataMaintainer,
+)
+from turtle_quant_1.data_processing.datetimes import (
+    get_expected_market_hours_index,
+    get_symbol_timezone,
 )
 from turtle_quant_1.data_processing.yfinance_fetcher import YFinanceDataFetcher
 
@@ -43,180 +45,6 @@ class DataMaintainer(BaseDataMaintainer):
         self.symbols = symbols or LIVE_SYMBOLS
         self.fetcher = fetcher or YFinanceDataFetcher()
 
-    def _get_symbol_market_hours(self, symbol: str) -> dict:
-        """Get market hours for a specific symbol.
-
-        Args:
-            symbol: Stock symbol (e.g., 'AAPL')
-
-        Returns:
-            Dictionary with 'open', 'close', and 'timezone' keys
-        """
-        return MARKET_HOURS.get(
-            SYMBOL_MARKETS.get(symbol, "NYSE"), MARKET_HOURS["NYSE"]
-        )
-
-    def _get_symbol_open_time(self, symbol: str) -> str:
-        """Get market open time for a symbol.
-
-        Args:
-            symbol: Stock symbol
-
-        Returns:
-            Open time string in "HH:MM" format (UTC)
-        """
-        return self._get_symbol_market_hours(symbol)["open"]
-
-    def _get_symbol_close_time(self, symbol: str) -> str:
-        """Get market close time for a symbol.
-
-        Args:
-            symbol: Stock symbol
-
-        Returns:
-            Close time string in "HH:MM" format (UTC)
-        """
-        return self._get_symbol_market_hours(symbol)["close"]
-
-    def _get_expected_market_hours_index(
-        self, symbol: str, start_date: datetime, end_date: datetime
-    ) -> List[datetime]:
-        """Generate a list of all expected market hours for a symbol between start and end dates.
-
-        Args:
-            symbol: Stock symbol to get market hours for
-            start_date: Start date
-            end_date: End date
-
-        Returns:
-            List of datetime objects representing each expected market hour for this symbol
-        """
-        expected_hours = []
-        current_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-
-        # Get symbol-specific market hours
-        open_time_str = self._get_symbol_open_time(symbol)
-        close_time_str = self._get_symbol_close_time(symbol)
-        open_hour, open_minute = map(int, open_time_str.split(":"))
-        close_hour, close_minute = map(int, close_time_str.split(":"))
-
-        while current_date <= end_date:
-            # Skip weekends
-            if current_date.weekday() < 5:  # Monday=0, Friday=4
-                # Generate hourly timestamps for this trading day
-                market_open = current_date.replace(hour=open_hour, minute=open_minute)
-                market_close = current_date.replace(
-                    hour=close_hour, minute=close_minute
-                )
-
-                current_hour = market_open
-                while current_hour <= market_close:
-                    if start_date <= current_hour <= end_date:
-                        expected_hours.append(current_hour)
-                    current_hour += timedelta(hours=1)
-
-            # Move to next day
-            current_date += timedelta(days=1)
-
-        return expected_hours
-
-    def _convert_dates_to_market_hours(
-        self,
-        symbol: str,
-        start_date: datetime.date,
-        end_date: datetime.date,
-    ) -> Tuple[datetime, datetime]:
-        """Convert dates to market hours timestamps.
-
-        Args:
-            symbol: Stock symbol to get market hours for
-            start_date: Start date
-            end_date: End date
-
-        Returns:
-            Tuple of (market_open, market_close) datetimes
-        """
-        # Get symbol-specific market hours
-        open_time_str = self._get_symbol_open_time(symbol)
-        close_time_str = self._get_symbol_close_time(symbol)
-        open_hour, open_minute = map(int, open_time_str.split(":"))
-        close_hour, close_minute = map(int, close_time_str.split(":"))
-
-        market_open = datetime.combine(
-            start_date, datetime.min.time().replace(hour=open_hour, minute=open_minute)
-        )
-        market_close = datetime.combine(
-            end_date, datetime.min.time().replace(hour=close_hour, minute=close_minute)
-        )
-
-        return market_open, market_close
-
-    def _is_consecutive_market_hours(
-        self, symbol: str, hour1: datetime, hour2: datetime
-    ) -> bool:
-        """Check if two market hours are consecutive for a specific symbol considering market breaks.
-
-        Args:
-            symbol: Stock symbol to get market hours for
-            hour1: First hour
-            hour2: Second hour
-
-        Returns:
-            True if hours are consecutive market hours for this symbol, False otherwise
-        """
-        # Get symbol-specific market hours
-        open_time_str = self._get_symbol_open_time(symbol)
-        close_time_str = self._get_symbol_close_time(symbol)
-        open_hour, open_minute = map(int, open_time_str.split(":"))
-        close_hour, close_minute = map(int, close_time_str.split(":"))
-
-        # If it's just the next hour on the same day
-        if hour2 == hour1 + timedelta(hours=1):
-            return True
-
-        # Check if hour1 is market close and hour2 is market open next trading day
-        market_close_time = hour1.replace(hour=close_hour, minute=close_minute)
-
-        # If hour1 is at market close
-        if hour1.time() == market_close_time.time():
-            # Find next trading day
-            next_day = hour1 + timedelta(days=1)
-            while next_day.weekday() >= 5:  # Skip weekends
-                next_day += timedelta(days=1)
-
-            next_market_open = next_day.replace(hour=open_hour, minute=open_minute)
-            return hour2 == next_market_open
-
-        return False
-
-    def _is_weekend_date(self, date: datetime) -> bool:
-        """Check if a date is a weekend.
-
-        Args:
-            date: Date to check
-
-        Returns:
-            True if date is a weekend, False otherwise
-        """
-        return date.weekday() >= 5
-
-    def _is_holiday_date(self, date: datetime, symbol: str) -> bool:
-        """Check if a date is a bank holiday.
-
-        Args:
-            date: Date to check
-
-        Returns:
-            True if date is a bank holiday, False otherwise
-        """
-        market_code = SYMBOL_MARKETS.get(symbol, "NYSE")  # TODO: Handle LSE.
-        curr_year = datetime.now().year
-        years = [curr_year - i for i in range(math.ceil(MAX_HISTORY_DAYS / 365) + 1)]
-        holiday_dates = list(
-            holidays.financial_holidays(market_code, years=years).keys()
-        )
-        return date.date() in holiday_dates
-
     def _get_data_gaps(
         self,
         symbol: str,
@@ -229,103 +57,87 @@ class DataMaintainer(BaseDataMaintainer):
         Args:
             symbol: Symbol to check for gaps.
             data: DataFrame with data.
-            start_date: Start date to check from.
-            end_date: End date to check to.
+            start_date: Timezone-aware start date to check from.
+            end_date: Timezone-aware end date to check to.
 
         Returns:
             List of (gap_start, gap_end) tuples representing missing data periods during this symbol's market hours.
-            Each gap starts at market open and ends at market close of the respective days.
+            Each gap represents a continuous period of missing hourly data.
         """
         try:
             # Ensure datetime column is properly formatted and timezone-naive for comparisons
             if not data.empty:
                 data["datetime"] = pd.to_datetime(data["datetime"])
-                if data["datetime"].dt.tz is not None:
-                    # Convert timezone-aware datetime to naive (UTC) to avoid comparison issues
-                    data["datetime"] = (
-                        data["datetime"].dt.tz_convert("UTC").dt.tz_localize(None)
-                    )
 
             # Ensure start_date and end_date are timezone-naive for consistent comparisons
             if start_date.tzinfo is not None:
-                start_date = start_date.replace(tzinfo=None)
+                start_date = start_date.astimezone(
+                    pytz.timezone(get_symbol_timezone(symbol))
+                )
             if end_date.tzinfo is not None:
-                end_date = end_date.replace(tzinfo=None)
+                end_date = end_date.astimezone(
+                    pytz.timezone(get_symbol_timezone(symbol))
+                )
 
-            # Generate expected market days for this symbol
-            expected_days_datetimes = []
-
-            curr_datetime = start_date.replace(
-                hour=0, minute=0, second=0, microsecond=0
+            # Generate expected market hours for this symbol (hourly resolution)
+            expected_datetimes = get_expected_market_hours_index(
+                symbol, start_date, end_date
             )
-            while curr_datetime <= end_date:
-                if not self._is_weekend_date(
-                    curr_datetime
-                ) and not self._is_holiday_date(curr_datetime, symbol):
-                    expected_days_datetimes.append(curr_datetime)
-                curr_datetime += timedelta(days=1)
-
-            if not expected_days_datetimes:
+            if not expected_datetimes:
                 return []
 
-            # Get existing data dates
+            # Create DataFrame with all expected hours
+            expected_df = pd.DataFrame({"datetime": expected_datetimes})
+
+            # Get existing data hours (rounded to nearest hour)
             if data.empty:
-                existing_days = set()
+                existing_datetimes = set()
             else:
-                # Get unique dates from the hourly data
-                data["date"] = data["datetime"].dt.date
-                existing_days = set(data["date"].unique())
+                data_datetimes = data["datetime"]
+                existing_datetimes = set(data_datetimes.unique())
 
-            # Convert expected_days_datetimes to date objects for comparison
-            expected_days = set(day.date() for day in expected_days_datetimes)
-            missing_days = sorted(
-                [day for day in expected_days if day not in existing_days]
-            )
+            # Add exists flag
+            expected_df["exists"] = expected_df["datetime"].isin(existing_datetimes)
 
-            if not missing_days:
-                return []
-
-            # Group consecutive missing days into gap periods
-            gap_periods = []  # List of (market_open, market_close) datetimes
-            gap_start = missing_days[0]
-            gap_end = missing_days[0]
-
-            for i in range(1, len(missing_days)):
-                curr_day = missing_days[i]
-                prev_day = missing_days[i - 1]
-
-                # Check if days are consecutive (accounting for weekends)
-                days_between = (curr_day - prev_day).days
-                if days_between <= 3:
-                    # Count consecutive days as a single gap
-                    gap_end = curr_day
-                else:
-                    # End current gap and start a new one
-                    gap_periods.append(
-                        self._convert_dates_to_market_hours(symbol, gap_start, gap_end)
-                    )
-                    gap_start = curr_day
-                    gap_end = curr_day
-
-            # Add the final gap
-            gap_periods.append(
-                self._convert_dates_to_market_hours(symbol, gap_start, gap_end)
-            )
-
-            return gap_periods
+            # Find gaps using groupby on consecutive missing periods
+            return self._get_data_gaps_with_groupby(expected_df)
 
         except Exception as e:
             logger.warning(f"Error finding data gaps for {symbol}: {str(e)}")
-            # If we can't load data, consider all market days as gaps
-            if not expected_days_datetimes:
-                return []
-            return [
-                self._convert_dates_to_market_hours(
-                    symbol,
-                    expected_days_datetimes[0].date(),
-                    expected_days_datetimes[-1].date(),
-                )
-            ]
+            # If we can't process data properly, return empty gaps list
+            return []
+
+    def _get_data_gaps_with_groupby(
+        self, expected_df: pd.DataFrame
+    ) -> List[Tuple[datetime, datetime]]:
+        """Find gaps using pandas groupby on consecutive missing periods.
+
+        Args:
+            expected_df: DataFrame with 'datetime' and 'exists' columns
+
+        Returns:
+            List of (gap_start, gap_end) tuples representing continuous missing periods
+        """
+        # Create groups for consecutive missing periods
+        # Use cumsum on the difference between current index and row number to identify groups
+        expected_df = expected_df.reset_index(drop=True)
+        expected_df["group"] = (
+            expected_df["exists"].ne(expected_df["exists"].shift()).cumsum()
+        )
+
+        # Filter to only missing hours
+        missing_df = expected_df[~expected_df["exists"]]
+        if missing_df.empty:
+            return []
+
+        # Group by consecutive periods and get min/max datetime for each gap
+        gaps = []
+        for _, group in missing_df.groupby("group"):
+            gap_start = group["datetime"].min()
+            gap_end = group["datetime"].max()
+            gaps.append((gap_start, gap_end))
+
+        return gaps
 
     def _fill_data_gaps(
         self,
@@ -344,13 +156,14 @@ class DataMaintainer(BaseDataMaintainer):
             DataFrame with gaps filled.
         """
         total_gaps = len(gaps)
-        gaps_to_fill = gaps[:MAX_CANDLE_GAPS_TO_FILL]
+        gaps_to_fill = gaps
 
         if total_gaps > MAX_CANDLE_GAPS_TO_FILL:
             logger.warning(
-                f"Found {total_gaps} gaps for {symbol}, but only filling the first {MAX_CANDLE_GAPS_TO_FILL} "
-                f"(configured limit). Remaining {total_gaps - MAX_CANDLE_GAPS_TO_FILL} gaps will be skipped."
+                f"Found {total_gaps} gaps for {symbol} (configured limit). "
+                f"Entire dataset for symbol {symbol} will be filled."
             )
+            gaps_to_fill = [gaps[0][0], gaps[-1][1]]
 
         for i, (gap_start, gap_end) in enumerate(gaps_to_fill, 1):
             logger.info(
@@ -380,55 +193,48 @@ class DataMaintainer(BaseDataMaintainer):
         Args:
             symbol: Symbol to append gaps to.
             data: DataFrame with data.
-            start_date: Start date for the data. If None, uses MAX_HISTORY_DAYS ago.
-            end_date: End date for the data. If None, uses current time.
+            start_date: Timezone-aware start date for the data. If None, uses MAX_HISTORY_DAYS ago.
+            end_date: Timezone-aware end date for the data. If None, uses current time.
 
         Returns:
             DataFrame with gaps appended.
         """
         # Set default dates if not provided
-        end_date = end_date or datetime.now()
+        end_date = end_date or datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
         start_date = start_date or (end_date - timedelta(days=MAX_HISTORY_DAYS))
 
-        existing_data = data
+        existing_data = data.copy()
 
         # Fetch data
-        df = self.fetcher.fetch_hourly_ohlcv(
+        fetched_data = self.fetcher.fetch_hourly_ohlcv(
             symbol=symbol,
             start_date=start_date,
             end_date=end_date,
         )
 
         # Combine with existing data if any
-        if not existing_data.empty and not df.empty:
+        if not existing_data.empty and not fetched_data.empty:
             # Convert datetime columns to same type for concatenation
-            if "datetime" in existing_data.columns and "datetime" in df.columns:
+            if (
+                "datetime" in existing_data.columns
+                and "datetime" in fetched_data.columns
+            ):
                 existing_data["datetime"] = pd.to_datetime(existing_data["datetime"])
-                df["datetime"] = pd.to_datetime(df["datetime"])
-
-                # Handle timezone-aware datetime data by converting to naive datetime
-                if existing_data["datetime"].dt.tz is not None:
-                    existing_data["datetime"] = (
-                        existing_data["datetime"]
-                        .dt.tz_convert("UTC")
-                        .dt.tz_localize(None)
-                    )
-                if df["datetime"].dt.tz is not None:
-                    df["datetime"] = (
-                        df["datetime"].dt.tz_convert("UTC").dt.tz_localize(None)
-                    )
+                fetched_data["datetime"] = pd.to_datetime(fetched_data["datetime"])
 
                 # Remove duplicates by datetime and combine
-                combined_data = pd.concat([existing_data, df], ignore_index=True)
+                combined_data = pd.concat(
+                    [existing_data, fetched_data], ignore_index=True
+                )
                 combined_data = combined_data.drop_duplicates(
                     subset=["datetime"], keep="last"
                 )
                 combined_data = combined_data.sort_values("datetime").reset_index(
                     drop=True
                 )
-                df = combined_data
+                existing_data = combined_data
 
-        return df
+        return existing_data
 
     def impute_data(
         self,
@@ -441,12 +247,12 @@ class DataMaintainer(BaseDataMaintainer):
         Args:
             symbol: Symbol to ensure data for.
             data: DataFrame with data.
-            end_date: End date to ensure data up to. If None, uses current time.
+            end_date: Timezone-aware end date to ensure data up to. If None, uses current time.
 
         Returns:
             DataFrame with updated data.
         """
-        end_date = end_date or datetime.now()
+        end_date = end_date or datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
         start_date = end_date - timedelta(days=MAX_HISTORY_DAYS)
 
         logger.info(

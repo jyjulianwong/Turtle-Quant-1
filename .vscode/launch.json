@@ -7,6 +7,18 @@
             "request": "launch",
             "module": "notebooks.backtesting_demo",
             "args": [],
+        },
+        {
+            "name": "Python Debugger: Server",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "fastapi",
+            "args": [
+                "dev",
+                "turtle_quant_1/server/main.py",
+                "--port",
+                "8080"
+            ],
         }
     ]
 } 

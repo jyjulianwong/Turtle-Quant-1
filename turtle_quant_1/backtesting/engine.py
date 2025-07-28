@@ -5,12 +5,14 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 
 import pandas as pd
+import pytz
 
 from turtle_quant_1.backtesting.portfolio import Portfolio
 from turtle_quant_1.config import (
     BACKTESTING_MAX_LOOKBACK_DAYS,
     BACKTESTING_MAX_LOOKFORWARD_DAYS,
     BACKTESTING_SYMBOLS,
+    HOST_TIMEZONE,
     MAX_HISTORY_DAYS,
     MARKET_HOURS,
     SYMBOL_MARKETS,
@@ -79,7 +81,7 @@ class BacktestingEngine:
         logger.info(f"Loading data for {symbol}...")
 
         # Calculate date ranges
-        end_date = datetime.now()
+        end_date = datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
         start_date = end_date - timedelta(days=self.max_history_days)
 
         try:
@@ -130,7 +132,7 @@ class BacktestingEngine:
 
         return data.iloc[start_index : current_index + 1].copy()
 
-    def _find_simulation_time_range(
+    def _get_simulation_time_range(
         self, symbols: List[str]
     ) -> Tuple[datetime, datetime]:
         """Find the overall time range for simulation across all symbols.
@@ -139,7 +141,7 @@ class BacktestingEngine:
             symbols: List of symbols to check.
 
         Returns:
-            Tuple of (start_time, end_time) for the simulation range.
+            Tuple of (start_time, end_time) for the simulation range. Timezone-aware.
         """
         start_times = []
         end_times = []
@@ -159,30 +161,31 @@ class BacktestingEngine:
 
         return simulation_start, simulation_end
 
-    def _generate_hourly_ticks(
+    def _generate_simulation_ticks(
         self, start_time: datetime, end_time: datetime
     ) -> List[datetime]:
-        """Generate hourly ticks from start_time to end_time.
+        """Generate simulation ticks from start_time to end_time.
 
         Args:
-            start_time: Start of simulation period.
-            end_time: End of simulation period.
+            start_time: Start of simulation period. Timezone-aware.
+            end_time: End of simulation period. Timezone-aware.
 
         Returns:
-            List of datetime objects representing hourly ticks.
+            List of datetime objects representing simulation ticks. Timezone-aware.
         """
-        # Start from the beginning of the start date (00:00)
-        tick_start = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Start from the beginning of the start date (00:00:00)
+        tick_start = start_time.replace(hour=0, minute=0, second=0)
 
         # End at the end of the end date (23:59:59)
-        tick_end = end_time.replace(hour=23, minute=59, second=59, microsecond=999999)
+        tick_end = end_time.replace(hour=23, minute=59, second=59)
 
         ticks = []
-        current_tick = tick_start
+        curr_tick = tick_start
 
-        while current_tick <= tick_end:
-            ticks.append(current_tick)
-            current_tick += timedelta(hours=1)
+        while curr_tick <= tick_end:
+            ticks.append(curr_tick)
+            # TODO: Respect CANDLE_UNIT.
+            curr_tick += timedelta(hours=1)
 
         return ticks
 
@@ -191,7 +194,7 @@ class BacktestingEngine:
 
         Args:
             symbol: Symbol to check trading hours for.
-            timestamp: Timestamp to check (UTC timezone-naive).
+            timestamp: Timestamp to check. Timezone-aware.
 
         Returns:
             True if within trading hours (including 2-hour grace period after close), False otherwise.
@@ -200,27 +203,27 @@ class BacktestingEngine:
         if timestamp.weekday() >= 5:  # Saturday or Sunday
             return False
 
-        # Get market hours for this symbol (already in UTC)
+        # Get market hours for this symbol in its local timezone
         market = SYMBOL_MARKETS.get(symbol, "NYSE")
         market_hours = MARKET_HOURS.get(market, MARKET_HOURS["NYSE"])
 
-        # Parse market open and close times (format: "HH:MM")
-        open_hour, open_minute = map(int, market_hours["open"].split(":"))
-        close_hour, close_minute = map(int, market_hours["close"].split(":"))
+        # Parse market open and close times (format: "HH:MM") in its local timezone
+        o_hour, o_minute = map(int, market_hours["opening"].split(":"))
+        c_hour, c_minute = map(int, market_hours["closing"].split(":"))
 
-        # Create market open and close times for the current day
-        market_open = timestamp.replace(
-            hour=open_hour, minute=open_minute, second=0, microsecond=0
+        # Create market open and close times for the current day whilst preserving the timezone
+        market_o_datetime = timestamp.replace(
+            hour=o_hour, minute=o_minute, second=0, microsecond=0
         )
-        market_close = timestamp.replace(
-            hour=close_hour, minute=close_minute, second=0, microsecond=0
+        market_c_datetime = timestamp.replace(
+            hour=c_hour, minute=c_minute, second=0, microsecond=0
         )
 
-        # Add 2-hour grace period after market close
-        market_close_with_grace = market_close + timedelta(hours=2)
+        # Add 1-hour grace period after market close
+        market_c_dt_with_grace = market_c_datetime + timedelta(hours=1)
 
         # Check if within trading hours (including grace period)
-        return market_open <= timestamp <= market_close_with_grace
+        return market_o_datetime <= timestamp <= market_c_dt_with_grace
 
     def _execute_signal(
         self,
@@ -235,7 +238,7 @@ class BacktestingEngine:
             symbol: Symbol to trade.
             signal_action: The signal action (BUY, SELL, HOLD).
             price: Current price.
-            timestamp: Current timestamp.
+            timestamp: Current timestamp. Timezone-aware.
 
         Returns:
             True if a transaction was executed, False otherwise.
@@ -273,40 +276,42 @@ class BacktestingEngine:
         logger.info("Starting backtesting simulation...")
 
         # Find the overall time range across all symbols
-        overall_start, overall_end = self._find_simulation_time_range(self.symbols)
+        history_start, history_end = self._get_simulation_time_range(self.symbols)
 
         # Split into lookback and simulation periods
-        lookback_end = overall_start + timedelta(days=self.max_lookback_days)
+        lookback_end = history_start + timedelta(days=self.max_lookback_days)
         simulation_start = lookback_end
         simulation_end = min(
-            overall_end,
+            history_end,
             simulation_start + timedelta(days=self.max_lookforward_days),
         )
 
         logger.info(f"Simulation period: {simulation_start} to {simulation_end}")
 
-        # Generate hourly ticks for the entire simulation period
-        hourly_ticks = self._generate_hourly_ticks(simulation_start, simulation_end)
+        # Generate simulation ticks for the entire simulation period
+        simulation_ticks = self._generate_simulation_ticks(
+            simulation_start, simulation_end
+        )
 
-        logger.info(f"Generated {len(hourly_ticks)} hourly ticks for simulation")
+        logger.info(
+            f"Generated {len(simulation_ticks)} simulation ticks for simulation"
+        )
 
-        if len(hourly_ticks) < 2:
-            raise ValueError("Not enough hourly ticks for meaningful backtesting")
+        if len(simulation_ticks) < 2:
+            raise ValueError("Not enough simulation ticks for meaningful backtesting")
 
-        # Run the simulation using hourly ticks
+        # Run the simulation using simulation ticks
         total_signals = 0
         total_transactions = 0
-        signals_skipped_trading_hours = 0
 
         # Get current prices for all symbols at this timestamp
         current_prices = {}
 
-        for i, timestamp in enumerate(hourly_ticks):
+        for i, timestamp in enumerate(simulation_ticks):
             # Generate signals for each symbol
             for symbol in self.symbols:
                 # Check if within trading hours for this symbol
                 if not self._is_within_trading_hours(symbol, timestamp):
-                    signals_skipped_trading_hours += 1
                     continue
 
                 # Get full historical data up to this point for strategy analysis
@@ -349,15 +354,15 @@ class BacktestingEngine:
                     )
 
             # Log progress periodically
-            if i % 168 == 0:  # Every week (168 hours)
+            if i % 100 == 0:  # Every 100 simulation ticks
                 portfolio_value = (
                     self.portfolio.get_portfolio_value(current_prices)
                     if current_prices
                     else self.initial_capital
                 )
                 logger.info(
-                    f"Progress: {i}/{len(hourly_ticks)} ({100 * i / len(hourly_ticks):.1f}%) | "
-                    f"Portfolio: ${portfolio_value:.2f}"
+                    f"Progress: {i}/{len(simulation_ticks)} ({100 * i / len(simulation_ticks):.1f}%) | "
+                    f"Portfolio Value: ${portfolio_value:.2f}"
                 )
 
         # Calculate final results
@@ -376,17 +381,16 @@ class BacktestingEngine:
         results = {
             "initial_capital": self.initial_capital,
             "final_portfolio_value": final_portfolio_value,
+            "final_holdings": self.portfolio.get_current_holdings(),
+            "final_cash": self.portfolio.cash,
             "total_return_dollars": total_return,
             "total_return_percent": self.portfolio.get_return_percentage(final_prices),
-            "total_signals_generated": total_signals,
-            "total_transactions_executed": total_transactions,
-            "signals_skipped_trading_hours": signals_skipped_trading_hours,
-            "total_hourly_ticks": len(hourly_ticks),
+            "total_signals": total_signals,
+            "total_transactions": total_transactions,
+            "total_simulation_ticks": len(simulation_ticks),
             "simulation_start": simulation_start,
             "simulation_end": simulation_end,
             "symbols_traded": self.symbols,
-            "final_holdings": self.portfolio.get_current_holdings(),
-            "final_cash": self.portfolio.cash,
             "transaction_history": self.portfolio.get_transaction_history(),
             "portfolio_summary": self.portfolio.get_summary(final_prices),
         }
@@ -394,8 +398,7 @@ class BacktestingEngine:
         logger.info(
             f"Backtesting complete. Total return: ${total_return:.2f} "
             f"({self.portfolio.get_return_percentage(final_prices):.2f}%) | "
-            f"Signals generated: {total_signals} | Transactions: {total_transactions} | "
-            f"Skipped (trading hours): {signals_skipped_trading_hours}"
+            f"Signals generated: {total_signals} | Transactions: {total_transactions}"
         )
 
         return results

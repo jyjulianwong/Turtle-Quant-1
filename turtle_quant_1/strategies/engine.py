@@ -173,6 +173,26 @@ class StrategyEngine(BaseStrategyEngine):
 
         return agreement
 
+    def aggregate_scores(self, data: pd.DataFrame, symbol: str) -> float:
+        """Aggregate scores from all strategies using weighted average.
+
+        Args:
+            data: DataFrame with OHLCV data.
+            symbol: The symbol being analyzed.
+
+        Returns:
+            Aggregated score between -1.0 and +1.0.
+        """
+        total_score = 0.0
+
+        for strategy, weight in zip(self.strategies, self.weights):
+            score = strategy.generate_score(data, symbol)
+            # Ensure score is within bounds
+            score = max(-1.0, min(1.0, score))
+            total_score += score * weight
+
+        return total_score
+
     def generate_signal(self, data: pd.DataFrame, symbol: str) -> Signal:
         """Generate a trading signal by aggregating all strategies.
 

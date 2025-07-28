@@ -20,16 +20,16 @@ class LinearRegressionStrategy(BaseStrategy):
     """
 
     def __init__(
-        self, lookback_periods: int = 20, name: str = "LinearRegressionStrategy"
+        self, lookback_candles: int = 24, name: str = "LinearRegressionStrategy"
     ):
         """Initialize the linear regression strategy.
 
         Args:
-            lookback_periods: Number of recent periods to use for trend calculation.
+            lookback_candles: Number of recent periods to use for trend calculation.
             name: Name of the strategy.
         """
         super().__init__(name)
-        self.lookback_periods = lookback_periods
+        self.lookback_candles = lookback_candles
 
     def get_breakdown(self, data: pd.DataFrame, symbol: str) -> dict[str, Any]:
         """Get detailed linear regression information for analysis.
@@ -48,7 +48,7 @@ class LinearRegressionStrategy(BaseStrategy):
         data_sorted = data.sort_values("datetime").copy()
 
         # Use the specified number of recent periods
-        periods_to_use = min(self.lookback_periods, len(data_sorted))
+        periods_to_use = min(self.lookback_candles, len(data_sorted))
         recent_data = data_sorted.tail(periods_to_use).copy()
 
         if len(recent_data) < 2:
@@ -111,7 +111,7 @@ class LinearRegressionStrategy(BaseStrategy):
         data_sorted = data.sort_values("datetime").copy()
 
         # Use the specified number of recent periods, or all available data if less
-        periods_to_use = min(self.lookback_periods, len(data_sorted))
+        periods_to_use = min(self.lookback_candles, len(data_sorted))
         recent_data = data_sorted.tail(periods_to_use).copy()
 
         if len(recent_data) < 2:
