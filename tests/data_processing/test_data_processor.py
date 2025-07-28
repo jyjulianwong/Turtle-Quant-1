@@ -81,7 +81,7 @@ class TestDataProcessor:
         """Test loading data from storage when data exists."""
         # Setup
         symbol = "AAPL"
-        mock_storage_adapter.load_ohlcv.return_value = sample_ohlcv_data
+        mock_storage_adapter.load_data.return_value = sample_ohlcv_data
 
         # Test
         result = data_processor.load_data(
@@ -93,10 +93,8 @@ class TestDataProcessor:
 
         # Assertions
         pd.testing.assert_frame_equal(result, sample_ohlcv_data)
-        mock_storage_adapter.load_ohlcv.assert_called_once_with(
+        mock_storage_adapter.load_data.assert_called_once_with(
             symbol=symbol,
-            start_date=dates["start"],
-            end_date=dates["end"],
         )
         assert not mock_storage_adapter.save_data.called
         assert symbol in data_processor.data_cache
@@ -125,7 +123,9 @@ class TestDataProcessor:
 
         # Assertions
         pd.testing.assert_frame_equal(result, sample_ohlcv_data)
-        mock_storage_adapter.load_ohlcv.assert_called_once()
+        mock_storage_adapter.load_data.assert_called_once_with(
+            symbol=symbol,
+        )
         mock_fetcher.fetch_hourly_ohlcv.assert_called_once_with(
             symbol=symbol,
             start_date=dates["start"],
@@ -160,7 +160,7 @@ class TestDataProcessor:
 
         # Assertions
         pd.testing.assert_frame_equal(result, sample_ohlcv_data)
-        assert not mock_storage_adapter.load_ohlcv.called
+        assert not mock_storage_adapter.load_data.called
         assert not mock_fetcher.fetch_hourly_ohlcv.called
         assert not mock_storage_adapter.save_data.called
 
@@ -175,7 +175,7 @@ class TestDataProcessor:
         """Test loading data with imputation enabled."""
         # Setup
         symbol = "AAPL"
-        mock_storage_adapter.load_ohlcv.return_value = sample_ohlcv_data
+        mock_storage_adapter.load_data.return_value = sample_ohlcv_data
 
         # Create imputed data with an extra row
         imputed_data = sample_ohlcv_data.copy()
