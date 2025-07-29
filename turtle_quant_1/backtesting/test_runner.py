@@ -163,7 +163,7 @@ class BacktestingTestRunner:
             for result in passed_tests:
                 test_case = result["test_case"]
                 print(
-                    f"  {test_case.name}:\t${result['total_return_dollars']:,.2f}\treturn ({result['total_return_percent']:.2f}%)"
+                    f"  {test_case.name}:\t\t${result['total_return_dollars']:,.2f}\t\treturn ({result['total_return_percent']:.2f}%)"
                 )
 
         print("=" * 70)

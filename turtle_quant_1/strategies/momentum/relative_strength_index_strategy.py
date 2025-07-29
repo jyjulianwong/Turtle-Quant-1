@@ -18,13 +18,10 @@ class RelativeStrengthIndexStrategy(BaseStrategy):
         super().__init__(name)
         self.candles = candles
 
-    def generate_score(self, data: pd.DataFrame, symbol: str) -> float:
-        """Generate a score for the strategy.
+    def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
+        """Generate a historical score array for a symbol based on market data."""
+        self.validate_data(data)
 
-        Args:
-            data: The data to use for the strategy.
-            symbol: The symbol to use for the strategy.
-        """
         delta = data["Close"].diff()
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
@@ -35,7 +32,15 @@ class RelativeStrengthIndexStrategy(BaseStrategy):
         rs = avg_gain / (avg_loss + 1e-9)
         rsi = 100 - (100 / (1 + rs))
 
-        score = ((50 - rsi) / 50).clip(-1, 1)
+        return ((50 - rsi) / 50).clip(-1, 1).fillna(0)
+
+    def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
+        """Generate a score for the strategy.
+
+        Args:
+            data: The data to use for the strategy.
+            symbol: The symbol to use for the strategy.
+        """
         # RSI < 30 -> Score near +1 -> BUY
         # RSI > 70 -> Score near -1 -> SELL
-        return score.fillna(0).iloc[-1]
+        return self.generate_historical_scores(data, symbol).iloc[-1]

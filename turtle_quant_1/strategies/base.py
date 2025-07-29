@@ -63,8 +63,8 @@ class BaseStrategy(ABC):
         self.name = name
 
     @abstractmethod
-    def generate_score(self, data: pd.DataFrame, symbol: str) -> float:
-        """Generate a trading score for a symbol based on market data.
+    def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
+        """Generate a historical score array for a symbol based on market data.
 
         Args:
             data: DataFrame with OHLCV data containing columns:
@@ -75,7 +75,22 @@ class BaseStrategy(ABC):
             Score between -1.0 (strong sell) and +1.0 (strong buy).
             0.0 represents hold/neutral.
         """
-        pass
+        raise NotImplementedError()
+
+    @abstractmethod
+    def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
+        """Generate the latest score for prediction for a symbol based on market data.
+
+        Args:
+            data: DataFrame with OHLCV data containing columns:
+                  ['datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
+            symbol: The symbol being analyzed.
+
+        Returns:
+            Score between -1.0 (strong sell) and +1.0 (strong buy).
+            0.0 represents hold/neutral.
+        """
+        raise NotImplementedError()
 
     def validate_data(self, data: pd.DataFrame) -> None:
         """Validate that the input data has the required format.
@@ -183,6 +198,6 @@ class BaseStrategyEngine(ABC):
         """
         breakdown = {}
         for strategy in self.strategies:
-            score = strategy.generate_score(data, symbol)
+            score = strategy.generate_prediction_score(data, symbol)
             breakdown[strategy.name] = max(-1.0, min(1.0, score))
         return breakdown

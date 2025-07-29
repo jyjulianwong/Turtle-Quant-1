@@ -22,20 +22,33 @@ class BollingerBandStrategy(BaseStrategy):
         self.window = window
         self.n_std = n_std
 
-    def generate_score(self, data: pd.DataFrame, symbol: str) -> float:
-        """Generate a score for the strategy.
+    def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
+        """Generate a historical score array for a symbol based on market data.
 
         Args:
             data: The data to use for the strategy.
             symbol: The symbol to use for the strategy.
+
+        Returns:
+            A score array with each value between -1.0 and +1.0.
         """
+        self.validate_data(data)
+
         ma = data["Close"].rolling(self.window).mean()
         std = data["Close"].rolling(self.window).std()
 
         upper = ma + self.n_std * std
         lower = ma - self.n_std * std
 
-        score = ((data["Close"] - ma) / (upper - lower)).clip(-1, 1)
+        return ((data["Close"] - ma) / (upper - lower)).clip(-1, 1).fillna(0)
+
+    def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
+        """Generate a score for the strategy.
+
+        Args:
+            data: The data to use for the strategy.
+            symbol: The symbol to use for the strategy.
+        """
         # Score near +1 -> BUY
         # Score near -1 -> SELL
-        return score.fillna(0).iloc[-1]
+        return self.generate_historical_scores(data, symbol).iloc[-1]

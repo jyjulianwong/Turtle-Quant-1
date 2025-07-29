@@ -26,17 +26,23 @@ class MovingAverageCrossoverStrategy(BaseStrategy):
         self.sma_candles = sma_candles
         self.lma_candles = lma_candles
 
-    def generate_score(self, data: pd.DataFrame, symbol: str) -> float:
-        """Generate a score for the strategy.
+    def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
+        """Generate a historical score array for a symbol based on market data."""
 
-        Args:
-            data: The data to use for the strategy.
-            symbol: The symbol to use for the strategy.
-        """
+        self.validate_data(data)
 
         sma = data["Close"].rolling(self.sma_candles).mean()
         lma = data["Close"].rolling(self.lma_candles).mean()
 
         score = (sma - lma) / data["Close"]
 
-        return score.fillna(0).clip(-1, 1).iloc[-1]
+        return score.fillna(0).clip(-1, 1)
+
+    def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
+        """Generate a score for the strategy.
+
+        Args:
+            data: The data to use for the strategy.
+            symbol: The symbol to use for the strategy.
+        """
+        return self.generate_historical_scores(data, symbol).iloc[-1]

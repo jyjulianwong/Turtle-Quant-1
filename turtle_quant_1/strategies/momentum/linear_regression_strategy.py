@@ -1,5 +1,7 @@
 """Simple linear regression strategy implementation."""
 
+from typing import Tuple
+
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
@@ -29,17 +31,17 @@ class LinearRegressionStrategy(BaseStrategy):
         super().__init__(name)
         self.lookback_candles = lookback_candles
 
-    def generate_score(self, data: pd.DataFrame, symbol: str) -> float:
-        """Generate a trading score based on linear regression analysis.
+    def _get_coefficients(self, data: pd.DataFrame, symbol: str) -> Tuple[float, float]:
+        """Get the coefficients of the linear regression model.
 
         Args:
             data: DataFrame with OHLCV data.
             symbol: The symbol being analyzed.
 
         Returns:
-            Score between -1.0 (strong sell) and +1.0 (strong buy).
+            Tuple of (slope, intercept)
         """
-        # Validate input data
+
         self.validate_data(data)
 
         # Ensure data is sorted by datetime
@@ -50,7 +52,7 @@ class LinearRegressionStrategy(BaseStrategy):
         recent_data = data_sorted.tail(periods_to_use).copy()
 
         if len(recent_data) < 2:
-            return 0.0  # Not enough data, return neutral
+            return 0.0, 0.0  # Not enough data, return neutral
 
         # Create time index for regression (0, 1, 2, ...)
         recent_data = recent_data.reset_index(drop=True)
@@ -65,7 +67,39 @@ class LinearRegressionStrategy(BaseStrategy):
         # Calculate relative slope (normalize by average price to make it scale-invariant)
         mean_price = np.mean(y)  # pyrefly: ignore[no-matching-overload]
         if mean_price == 0:
-            return 0.0
+            return 0.0, 0.0
+
+        return slope, mean_price
+
+    def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
+        """Generate a historical score array for a symbol based on market data.
+
+        Args:
+            data: DataFrame with OHLCV data.
+            symbol: The symbol being analyzed.
+
+        Returns:
+            Score array with each value between -1.0 and +1.0
+        """
+        slope, mean_price = self._get_coefficients(data, symbol)
+
+        # Generate x values (e.g., from 0 to 10)
+        x = np.linspace(0, len(data), len(data))
+
+        # Calculate y values
+        return pd.Series(slope * x + mean_price).fillna(0)  # TODO: This is not correct.
+
+    def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
+        """Generate a trading score based on linear regression analysis.
+
+        Args:
+            data: DataFrame with OHLCV data.
+            symbol: The symbol being analyzed.
+
+        Returns:
+            Score between -1.0 (strong sell) and +1.0 (strong buy).
+        """
+        slope, mean_price = self._get_coefficients(data, symbol)
 
         relative_slope = slope / mean_price
 

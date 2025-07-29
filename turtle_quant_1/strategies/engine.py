@@ -183,7 +183,7 @@ class StrategyEngine(BaseStrategyEngine):
         total_score = 0.0
 
         for strategy, weight in zip(self.strategies, self.weights):
-            score = strategy.generate_score(data, symbol)
+            score = strategy.generate_prediction_score(data, symbol)
             self._scores[strategy.name] = score  # Save scores for later use
             # Ensure score is within bounds
             score = max(-1.0, min(1.0, score))
