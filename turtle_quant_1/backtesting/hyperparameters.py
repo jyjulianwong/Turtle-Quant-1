@@ -8,10 +8,6 @@ from turtle_quant_1.backtesting.engine import BacktestingEngine
 from turtle_quant_1.backtesting.models import TestCaseResults
 from turtle_quant_1.strategies.engine import StrategyEngine
 
-# NOTE: Import all strategy classes so they're available in globals()
-from turtle_quant_1.strategies.mean_reversion import *  # noqa: F401, F403
-from turtle_quant_1.strategies.momentum import *  # noqa: F401, F403
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -147,7 +143,9 @@ def objective(trial: optuna.Trial) -> float:
     results = run_backtest(config)
 
     # Extract objective metric (try Sharpe ratio, fallback to total return)
-    sharpe = get_objective_metric(results, "sharpe_ratio")
+    sharpe = get_objective_metric(
+        results, "sharpe_ratio"
+    )  # TODO: Enable multiple metrics.
     if sharpe == -1000.0:  # Error occurred, try fallback
         return get_objective_metric(results, "total_return_percent")
 
@@ -156,6 +154,7 @@ def objective(trial: optuna.Trial) -> float:
 
 def run_hyperparameter_tuning(
     n_trials: int,
+    n_jobs: int = -1,
     study_name: str = "strategy_engine_optimization",
     direction: str = "maximize",
 ) -> optuna.Study:
@@ -175,7 +174,7 @@ def run_hyperparameter_tuning(
     study = optuna.create_study(direction=direction, study_name=study_name)
 
     # Run optimization
-    study.optimize(objective, n_trials=n_trials)
+    study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs)
 
     # Print results
     logger.info("Optimization complete!")
@@ -198,7 +197,7 @@ def run_hyperparameter_tuning(
 
 if __name__ == "__main__":
     # Run optimization
-    study = run_hyperparameter_tuning(n_trials=10)
+    study = run_hyperparameter_tuning(n_trials=10, n_jobs=-1)
 
     # Test the best configuration
     logger.info("Testing best configuration...")

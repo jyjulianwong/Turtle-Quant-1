@@ -1,16 +1,19 @@
 """Strategy engine for aggregating multiple strategies and generating trading signals."""
 
-from typing import Any, Dict, List
+import importlib
+import inspect
+import pkgutil
+from typing import Any, Dict, List, Type
 
 import pandas as pd
 
+from turtle_quant_1.strategies import mean_reversion, momentum
 from turtle_quant_1.strategies.base import (
     BaseStrategy,
     BaseStrategyEngine,
     Signal,
     SignalAction,
 )
-# Import all strategy classes for globals() access in from_config
 
 
 class StrategyEngine(BaseStrategyEngine):
@@ -21,11 +24,44 @@ class StrategyEngine(BaseStrategyEngine):
     """
 
     @classmethod
+    def _get_strategy_types(cls) -> Dict[str, Type[BaseStrategy]]:
+        """Automatically discover all strategy classes in the strategies package."""
+        strategy_classes = {}
+
+        # List of modules to search in
+        strategy_modules = [mean_reversion, momentum]
+
+        for package in strategy_modules:
+            # Walk through all modules in the package
+            for _, module_name, _ in pkgutil.walk_packages(
+                package.__path__, package.__name__ + "."
+            ):
+                # Import the module
+                module = importlib.import_module(module_name)
+
+                # Find all classes in the module that inherit from BaseStrategy
+                for name, obj in inspect.getmembers(module):
+                    if (
+                        inspect.isclass(obj)
+                        and issubclass(obj, BaseStrategy)
+                        and obj != BaseStrategy
+                    ):
+                        strategy_classes[name] = obj
+
+        return strategy_classes
+
+    @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "StrategyEngine":
         """Create a strategy engine from a configuration dictionary."""
+        # Discover strategy classes on module import
+        strategy_types = cls._get_strategy_types()
+
         strategies = []
         for class_name, params in config["strategies"].items():
-            strategy: BaseStrategy = globals()[class_name](**params)
+            if class_name not in strategy_types:
+                raise ValueError(f"Unknown strategy class: {class_name}")
+            strategy_class = strategy_types[class_name]
+            strategy: BaseStrategy = strategy_class(**params)
             strategies.append(strategy)
 
         return cls(
