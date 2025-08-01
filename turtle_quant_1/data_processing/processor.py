@@ -13,12 +13,19 @@ from turtle_quant_1.data_processing.base import (
     BaseDataProcessor,
     BaseDataStorageAdapter,
 )
-from turtle_quant_1.data_processing.gcs_storage_adapter import GCSDataStorageAdapter
+from turtle_quant_1.data_processing.adapters.gcs_storage_adapter import (
+    GCSDataStorageAdapter,
+)
 from turtle_quant_1.data_processing.maintainer import DataMaintainer
-from turtle_quant_1.data_processing.yfinance_fetcher import YFinanceDataFetcher
+from turtle_quant_1.data_processing.adapters.yfinance_fetcher import YFinanceDataFetcher
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# !!!: Dangerous setting. Deletes and resets all data from cache.
+DANGER_CLEAR_CACHE = False
+# !!!: Dangerous setting. Deletes and resets all data from storage.
+DANGER_CLEAR_STORAGE = False
 
 
 class DataProcessor(BaseDataProcessor):
@@ -67,6 +74,12 @@ class DataProcessor(BaseDataProcessor):
         Returns:
             DataFrame with OHLCV data.
         """
+        if DANGER_CLEAR_CACHE:
+            self.data_cache.pop(symbol, None)
+        if DANGER_CLEAR_STORAGE:
+            self.storage.delete_data(symbol)
+            self.data_cache.pop(symbol, None)
+
         is_data_updated = False
 
         if symbol in self.data_cache:
@@ -75,7 +88,11 @@ class DataProcessor(BaseDataProcessor):
             logger.warning(
                 f"No data found for {symbol} in cache. Fetching from {self.storage}..."
             )
-            df = self.storage.load_data(symbol=symbol)
+            df = self.storage.load_ohlcv(
+                symbol=symbol,
+                start_date=None,  # TODO: Work out why.
+                end_date=None,  # TODO: Work out why.
+            )
 
         if df.empty:
             logger.warning(
@@ -112,4 +129,4 @@ class DataProcessor(BaseDataProcessor):
             symbol: Symbol to save data for.
             data: DataFrame with data.
         """
-        self.storage.save_data(symbol=symbol, data=data)
+        self.storage.save_ohlcv(symbol=symbol, data=data)

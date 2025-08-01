@@ -5,24 +5,22 @@ import pandas as pd
 from turtle_quant_1.strategies.base import BaseStrategy
 
 
-class MovingAverageCrossoverStrategy(BaseStrategy):
+class MovingAverageCrossover(BaseStrategy):
     """A strategy that uses moving averages to generate buy and sell signals."""
 
     def __init__(
         self,
-        name: str = "MovingAverageCrossoverStrategy",
         sma_candles: int = 30,
         lma_candles: int = 120,
     ):
         """Initialize the moving average crossover strategy.
 
         Args:
-            name: The name of the strategy.
             sma_candles: The number of candles to use for the short moving average.
             lma_candles: The number of candles to use for the long moving average.
         """
 
-        super().__init__(name)
+        super().__init__()
         self.sma_candles = sma_candles
         self.lma_candles = lma_candles
 

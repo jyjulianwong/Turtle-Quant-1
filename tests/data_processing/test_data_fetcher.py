@@ -6,8 +6,10 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from turtle_quant_1.data_processing.alpha_vantage_fetcher import AlphaVantageDataFetcher
-from turtle_quant_1.data_processing.yfinance_fetcher import YFinanceDataFetcher
+from turtle_quant_1.data_processing.adapters.alpha_vantage_fetcher import (
+    AlphaVantageDataFetcher,
+)
+from turtle_quant_1.data_processing.adapters.yfinance_fetcher import YFinanceDataFetcher
 
 
 @pytest.fixture
@@ -37,7 +39,7 @@ def alpha_vantage_fetcher(symbols):
 class TestYFinanceDataFetcher:
     """Test cases for YFinanceDataFetcher."""
 
-    @patch("turtle_quant_1.data_processing.yfinance_fetcher.yf.Ticker")
+    @patch("turtle_quant_1.data_processing.adapters.yfinance_fetcher.yf.Ticker")
     def test_fetch_hourly_ohlcv_success(self, mock_ticker_class, symbols, dates):
         """Test successful hourly OHLCV data fetching."""
         # Mock ticker instance and its history method
@@ -78,7 +80,7 @@ class TestYFinanceDataFetcher:
         mock_ticker.history.assert_called_once()
         pd.testing.assert_frame_equal(result, expected_data)
 
-    @patch("turtle_quant_1.data_processing.yfinance_fetcher.yf.Ticker")
+    @patch("turtle_quant_1.data_processing.adapters.yfinance_fetcher.yf.Ticker")
     def test_fetch_hourly_ohlcv_empty_data(self, mock_ticker_class, symbols, dates):
         """Test handling of empty data response."""
         # Mock ticker instance and its history method
@@ -103,7 +105,7 @@ class TestYFinanceDataFetcher:
 class TestAlphaVantageDataFetcher:
     """Test cases for AlphaVantageDataFetcher."""
 
-    @patch("turtle_quant_1.data_processing.alpha_vantage_fetcher.TimeSeries")
+    @patch("turtle_quant_1.data_processing.adapters.alpha_vantage_fetcher.TimeSeries")
     def test_fetch_hourly_ohlcv_success(self, mock_timeseries_class, symbols, dates):
         """Test successful hourly OHLCV data fetching."""
         # Mock TimeSeries instance
@@ -147,7 +149,7 @@ class TestAlphaVantageDataFetcher:
             for col in ["datetime", "Open", "High", "Low", "Close", "Volume"]
         )
 
-    @patch("turtle_quant_1.data_processing.alpha_vantage_fetcher.TimeSeries")
+    @patch("turtle_quant_1.data_processing.adapters.alpha_vantage_fetcher.TimeSeries")
     def test_fetch_hourly_ohlcv_api_error(self, mock_timeseries_class, symbols, dates):
         """Test handling of API error response."""
         # Mock TimeSeries instance to raise an exception

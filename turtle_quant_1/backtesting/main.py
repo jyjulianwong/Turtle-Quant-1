@@ -1,24 +1,28 @@
-"""Main entry point for backtesting."""
+"""Main entry point for backtesting.
+
+This script contains custom backtesting test cases to verify the backtesting engine.
+For implementation details, see runner.py.
+"""
 
 import logging
 from typing import List
 
-from turtle_quant_1.backtesting.test_runner import (
+from turtle_quant_1.backtesting.runner import (
     BacktestingTestCase,
     BacktestingTestRunner,
 )
 from turtle_quant_1.strategies.engine import StrategyEngine
-from turtle_quant_1.strategies.momentum.linear_regression_strategy import (
-    LinearRegressionStrategy,
+from turtle_quant_1.strategies.momentum.linear_regression import (
+    LinearRegression,
 )
-from turtle_quant_1.strategies.momentum.moving_average_crossover_strategy import (
-    MovingAverageCrossoverStrategy,
+from turtle_quant_1.strategies.momentum.moving_average_crossover import (
+    MovingAverageCrossover,
 )
-from turtle_quant_1.strategies.momentum.relative_strength_index_strategy import (
-    RelativeStrengthIndexStrategy,
+from turtle_quant_1.strategies.momentum.relative_strength_index import (
+    RelativeStrengthIndex,
 )
-from turtle_quant_1.strategies.mean_reversion.bollinger_band_strategy import (
-    BollingerBandStrategy,
+from turtle_quant_1.strategies.mean_reversion.bollinger_band import (
+    BollingerBand,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -29,21 +33,20 @@ def create_test_cases() -> List[BacktestingTestCase]:
     """Create predefined test cases for backtesting."""
     test_cases = []
 
-    linear_regression_strategy = LinearRegressionStrategy()
-    moving_average_crossover_strategy = MovingAverageCrossoverStrategy()
-    relative_strength_index_strategy = RelativeStrengthIndexStrategy()
-    bollinger_band_strategy = BollingerBandStrategy()
+    linear_regression = LinearRegression()
+    moving_average_crossover = MovingAverageCrossover()
+    relative_strength_index = RelativeStrengthIndex()
+    bollinger_band = BollingerBand()
 
     # Test Case 1: Zero capital test
     strategy_engine_aggressive = StrategyEngine(
         strategies=[
-            linear_regression_strategy,
-            moving_average_crossover_strategy,
-            relative_strength_index_strategy,
-            bollinger_band_strategy,
+            linear_regression,
+            moving_average_crossover,
+            relative_strength_index,
+            bollinger_band,
         ],
-        weights=[1.0, 1.0, 1.0, 1.0],
-        buy_threshold=0.2,
+        buy_unit_threshold=0.2,
         sell_threshold=-0.2,
     )
 
@@ -62,13 +65,12 @@ def create_test_cases() -> List[BacktestingTestCase]:
     # Test Case 2: Standard backtesting with moderate capital
     strategy_engine = StrategyEngine(
         strategies=[
-            linear_regression_strategy,
-            moving_average_crossover_strategy,
-            relative_strength_index_strategy,
-            bollinger_band_strategy,
+            linear_regression,
+            moving_average_crossover,
+            relative_strength_index,
+            bollinger_band,
         ],
-        weights=[1.0, 1.0, 1.0, 1.0],
-        buy_threshold=0.2,
+        buy_unit_threshold=0.2,
         sell_threshold=-0.2,
     )
 
@@ -91,6 +93,6 @@ if __name__ == "__main__":
 
     # Create and run test runner
     runner = BacktestingTestRunner(test_cases)
-    results = runner.run_all_tests()
+    results = runner.run_tests()
 
     logger.info("All backtesting tests completed!")

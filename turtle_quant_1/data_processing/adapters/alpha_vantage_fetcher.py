@@ -39,7 +39,7 @@ class AlphaVantageDataFetcher(BaseDataFetcher):
             DataFrame with columns: datetime, open, high, low, close, volume.
         """
         # Get hourly data (returns tuple of (data, metadata))
-        df, _ = self.client.get_intraday(
+        df, _ = self.client.get_intraday(  # pyrefly: ignore
             symbol=symbol, interval="60min", outputsize="full"
         )
 

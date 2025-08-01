@@ -21,7 +21,7 @@ from turtle_quant_1.data_processing.datetimes import (
     get_expected_market_hours_index,
     get_symbol_timezone,
 )
-from turtle_quant_1.data_processing.yfinance_fetcher import YFinanceDataFetcher
+from turtle_quant_1.data_processing.adapters.yfinance_fetcher import YFinanceDataFetcher
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -43,7 +43,7 @@ class DataMaintainer(BaseDataMaintainer):
             fetcher: Data fetcher to use. If None, uses YFinanceDataFetcher.
         """
         self.symbols = symbols or LIVE_SYMBOLS
-        self.fetcher = fetcher or YFinanceDataFetcher()
+        self.fetcher = fetcher or YFinanceDataFetcher(symbols=self.symbols)
 
     def _get_data_gaps(
         self,
@@ -78,6 +78,9 @@ class DataMaintainer(BaseDataMaintainer):
                 end_date = end_date.astimezone(
                     pytz.timezone(get_symbol_timezone(symbol))
                 )
+                end_date = min(
+                    end_date, datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
+                )
 
             # Generate expected market hours for this symbol (hourly resolution)
             expected_datetimes = get_expected_market_hours_index(
@@ -94,7 +97,9 @@ class DataMaintainer(BaseDataMaintainer):
                 existing_datetimes = set()
             else:
                 data_datetimes = data["datetime"]
-                existing_datetimes = set(data_datetimes.unique())
+                existing_datetimes = set(
+                    data_datetimes.unique()
+                )  # pyrefly: ignore[no-matching-overload]
 
             # Add exists flag
             expected_df["exists"] = expected_df["datetime"].isin(existing_datetimes)
@@ -163,9 +168,9 @@ class DataMaintainer(BaseDataMaintainer):
                 f"Found {total_gaps} gaps for {symbol} (configured limit). "
                 f"Entire dataset for symbol {symbol} will be filled."
             )
-            gaps_to_fill = [gaps[0][0], gaps[-1][1]]
+            gaps_to_fill = [(gaps[0][0], gaps[-1][1])]
 
-        for i, (gap_start, gap_end) in enumerate(gaps_to_fill, 1):
+        for i, (gap_start, gap_end) in enumerate(gaps_to_fill, 1):  # pyrefly: ignore
             logger.info(
                 f"Filling gap {i}/{len(gaps_to_fill)} for {symbol} from {gap_start} to {gap_end}..."
             )

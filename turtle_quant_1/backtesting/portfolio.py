@@ -1,22 +1,10 @@
 """Portfolio management for backtesting."""
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional
 
 import pandas as pd
-
-
-@dataclass
-class Transaction:
-    """Represents a single transaction (buy or sell)."""
-
-    timestamp: datetime
-    symbol: str
-    action: str  # 'BUY' or 'SELL'
-    quantity: float
-    price: float
-    total_value: float
+from turtle_quant_1.backtesting.models import PortfolioTransaction
 
 
 class Portfolio:
@@ -31,7 +19,7 @@ class Portfolio:
         self.initial_capital = initial_capital
         self.cash = initial_capital
         self.holdings: Dict[str, float] = {}  # symbol -> quantity
-        self.transactions: List[Transaction] = []
+        self.transactions: List[PortfolioTransaction] = []
 
     def get_current_holdings(self) -> Dict[str, float]:
         """Get current holdings.
@@ -76,7 +64,7 @@ class Portfolio:
         self.holdings[symbol] = self.holdings.get(symbol, 0.0) + quantity
 
         # Record transaction
-        transaction = Transaction(
+        transaction = PortfolioTransaction(
             timestamp=timestamp,
             symbol=symbol,
             action="BUY",
@@ -117,7 +105,7 @@ class Portfolio:
             del self.holdings[symbol]
 
         # Record transaction
-        transaction = Transaction(
+        transaction = PortfolioTransaction(
             timestamp=timestamp,
             symbol=symbol,
             action="SELL",
@@ -129,7 +117,7 @@ class Portfolio:
 
         return True
 
-    def sell_all(self, symbol: str, price: float, timestamp: datetime) -> bool:
+    def sell_holdings(self, symbol: str, price: float, timestamp: datetime) -> bool:
         """Sell all holdings of a symbol.
 
         Args:
@@ -164,7 +152,7 @@ class Portfolio:
 
         return self.cash + holdings_value
 
-    def get_total_return(self, current_prices: Dict[str, float]) -> float:
+    def get_return_dollars(self, current_prices: Dict[str, float]) -> float:
         """Calculate total return in dollars.
 
         Args:
@@ -176,7 +164,7 @@ class Portfolio:
         final_value = self.get_portfolio_value(current_prices)
         return final_value - self.initial_capital
 
-    def get_return_percentage(self, current_prices: Dict[str, float]) -> float:
+    def get_return_percent(self, current_prices: Dict[str, float]) -> float:
         """Calculate total return as percentage.
 
         Args:
@@ -188,7 +176,7 @@ class Portfolio:
         if self.initial_capital == 0.0:
             return 0.0
 
-        total_return = self.get_total_return(current_prices)
+        total_return = self.get_return_dollars(current_prices)
         return (total_return / self.initial_capital) * 100.0
 
     def get_transaction_history(self) -> pd.DataFrame:
@@ -244,8 +232,8 @@ class Portfolio:
             summary.update(
                 {
                     "portfolio_value": self.get_portfolio_value(current_prices),
-                    "total_return_dollars": self.get_total_return(current_prices),
-                    "total_return_percent": self.get_return_percentage(current_prices),
+                    "total_return_dollars": self.get_return_dollars(current_prices),
+                    "total_return_percent": self.get_return_percent(current_prices),
                 }
             )
 

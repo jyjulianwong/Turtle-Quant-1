@@ -1,6 +1,6 @@
 """Strategy engine for aggregating multiple strategies and generating trading signals."""
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List
 
 import pandas as pd
 
@@ -10,6 +10,7 @@ from turtle_quant_1.strategies.base import (
     Signal,
     SignalAction,
 )
+# Import all strategy classes for globals() access in from_config
 
 
 class StrategyEngine(BaseStrategyEngine):
@@ -19,11 +20,30 @@ class StrategyEngine(BaseStrategyEngine):
     the final aggregated score to actionable trading signals (BUY, HOLD, SELL).
     """
 
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> "StrategyEngine":
+        """Create a strategy engine from a configuration dictionary."""
+        strategies = []
+        for class_name, params in config["strategies"].items():
+            strategy: BaseStrategy = globals()[class_name](**params)
+            strategies.append(strategy)
+
+        return cls(
+            strategies=strategies,
+            weights=config["weights"] if "weights" in config else [],
+            buy_unit_threshold=config["buy_unit_threshold"]
+            if "buy_unit_threshold" in config
+            else 0.3,
+            sell_threshold=config["sell_threshold"]
+            if "sell_threshold" in config
+            else -0.3,
+        )
+
     def __init__(
         self,
         strategies: List[BaseStrategy],
-        weights: Optional[List[float]] = None,
-        buy_threshold: float = 0.3,
+        weights: List[float] = [],
+        buy_unit_threshold: float = 0.3,
         sell_threshold: float = -0.3,
     ):
         """Initialize the strategy engine.
@@ -31,96 +51,13 @@ class StrategyEngine(BaseStrategyEngine):
         Args:
             strategies: List of strategies to aggregate.
             weights: Optional list of weights for each strategy. If None, equal weights are used.
-            buy_threshold: Minimum aggregated score to generate BUY signal (default: 0.3).
-            sell_threshold: Maximum aggregated score to generate SELL signal (default: -0.3).
+            buy_unit_threshold: Minimum aggregated score to generate a BUY signal (default: 0.3).
+            sell_threshold: Maximum aggregated score to generate a SELL signal (default: -0.3).
         """
-        super().__init__(strategies, weights, buy_threshold, sell_threshold)
+        super().__init__(strategies, weights, buy_unit_threshold, sell_threshold)
 
         # TODO: Refactor.
         self._scores = {}
-
-    def get_configuration(self) -> Dict:
-        """Get current engine configuration.
-
-        Returns:
-            Dictionary with current configuration settings.
-        """
-        return {
-            "num_strategies": len(self.strategies),
-            "strategy_names": [strategy.name for strategy in self.strategies],
-            "weights": self.weights,
-            "buy_threshold": self.buy_threshold,
-            "sell_threshold": self.sell_threshold,
-        }
-
-    def update_thresholds(self, buy_threshold: float, sell_threshold: float) -> None:
-        """Update the buy and sell thresholds.
-
-        Args:
-            buy_threshold: New buy threshold.
-            sell_threshold: New sell threshold.
-        """
-        if not (-1.0 <= sell_threshold <= buy_threshold <= 1.0):
-            raise ValueError(
-                "Thresholds must satisfy: -1.0 <= sell_threshold <= buy_threshold <= 1.0"
-            )
-
-        self.buy_threshold = buy_threshold
-        self.sell_threshold = sell_threshold
-
-    def update_weights(self, weights: List[float]) -> None:
-        """Update strategy weights.
-
-        Args:
-            weights: New list of weights for each strategy.
-        """
-        if len(weights) != len(self.strategies):
-            raise ValueError("Number of weights must match number of strategies")
-        if abs(sum(weights) - 1.0) > 1e-6:
-            raise ValueError("Weights must sum to 1.0")
-
-        self.weights = weights
-
-    def analyze_symbol(self, data: pd.DataFrame, symbol: str) -> Dict:
-        """Perform comprehensive analysis of a symbol using all strategies.
-
-        Args:
-            data: DataFrame with OHLCV data.
-            symbol: The symbol being analyzed.
-
-        Returns:
-            Dictionary containing detailed analysis results.
-        """
-        # Get individual strategy scores
-        strategy_scores = self.get_breakdown(data, symbol)
-
-        # Get aggregated score and signal
-        aggregated_score = self.aggregate_scores(data, symbol)
-        signal = self.generate_signal(data, symbol)
-
-        # Calculate weighted contributions
-        weighted_contributions = {}
-        for strategy, weight in zip(self.strategies, self.weights):
-            strategy_name = strategy.name
-            if strategy_name in strategy_scores:
-                weighted_contributions[strategy_name] = {
-                    "raw_score": strategy_scores[strategy_name],
-                    "weight": weight,
-                    "weighted_score": strategy_scores[strategy_name] * weight,
-                }
-
-        return {
-            "symbol": symbol,
-            "signal": signal.action.value,
-            "signal_object": signal,
-            "aggregated_score": aggregated_score,
-            "buy_threshold": self.buy_threshold,
-            "sell_threshold": self.sell_threshold,
-            "strategy_scores": strategy_scores,
-            "weighted_contributions": weighted_contributions,
-            "num_strategies": len(self.strategies),
-            "data_points": len(data),
-        }
 
     def get_signal_confidence(self, data: pd.DataFrame, symbol: str) -> float:
         """Post-analysis metric. Calculate confidence level for the generated signal.
@@ -184,7 +121,7 @@ class StrategyEngine(BaseStrategyEngine):
 
         for strategy, weight in zip(self.strategies, self.weights):
             score = strategy.generate_prediction_score(data, symbol)
-            self._scores[strategy.name] = score  # Save scores for later use
+            self._scores[type(strategy).__name__] = score  # Save scores for later use
             # Ensure score is within bounds
             score = max(-1.0, min(1.0, score))
             total_score += score * weight
@@ -205,7 +142,7 @@ class StrategyEngine(BaseStrategyEngine):
         aggregated_score = self.aggregate_scores(data, symbol)
 
         # Convert score to trading signal based on thresholds
-        if aggregated_score >= self.buy_threshold:
+        if aggregated_score >= self.buy_unit_threshold:
             action = SignalAction.BUY
         elif aggregated_score <= self.sell_threshold:
             action = SignalAction.SELL
@@ -213,10 +150,10 @@ class StrategyEngine(BaseStrategyEngine):
             action = SignalAction.HOLD
 
         # Get strategy names, scores, and weights
-        strategy_names = [strategy.name for strategy in self.strategies]
+        strategy_names = [type(strategy).__name__ for strategy in self.strategies]
         strategy_scores = self._scores
         strategy_weights = {
-            strategy.name: weight
+            type(strategy).__name__: weight
             for strategy, weight in zip(self.strategies, self.weights)
         }
 

@@ -174,4 +174,15 @@ def is_holiday_date(date: datetime, symbol: str) -> bool:
     curr_year = datetime.now().year
     years = [curr_year - i for i in range(math.ceil(MAX_HISTORY_DAYS / 365) + 1)]
     holiday_dates = list(holidays.financial_holidays(market_code, years=years).keys())
-    return date.date() in holiday_dates
+
+    holiday_overrides = []
+    if market_code == "NYSE":
+        holiday_overrides = [
+            datetime(2023, 11, 24).date(),
+            datetime(2024, 7, 3).date(),
+            datetime(2024, 11, 29).date(),
+            datetime(2024, 12, 24).date(),
+            datetime(2025, 7, 3).date(),
+        ]
+
+    return date.date() in (holiday_dates + holiday_overrides)

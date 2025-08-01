@@ -5,20 +5,17 @@ import pandas as pd
 from turtle_quant_1.strategies.base import BaseStrategy
 
 
-class BollingerBandStrategy(BaseStrategy):
+class BollingerBand(BaseStrategy):
     """A strategy that uses the Bollinger bands to generate buy and sell signals."""
 
-    def __init__(
-        self, name: str = "BollingerBandStrategy", window: int = 120, n_std: int = 2
-    ):
+    def __init__(self, window: int = 120, n_std: int = 2):
         """Initialize the Bollinger band strategy.
 
         Args:
-            name: The name of the strategy.
             window: The number of periods to use for the Bollinger bands.
             n_std: The number of standard deviations to use for the Bollinger bands.
         """
-        super().__init__(name)
+        super().__init__()
         self.window = window
         self.n_std = n_std
 

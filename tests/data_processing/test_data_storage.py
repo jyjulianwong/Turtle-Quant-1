@@ -6,7 +6,9 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from turtle_quant_1.data_processing.gcs_storage_adapter import GCSDataStorageAdapter
+from turtle_quant_1.data_processing.adapters.gcs_storage_adapter import (
+    GCSDataStorageAdapter,
+)
 
 
 @pytest.fixture

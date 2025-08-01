@@ -28,6 +28,10 @@ dependencies = [
 ]
 
 [dependency-groups]
+backtest = [
+    "optuna>=4.4.0",
+    "quantstats>=0.0.68",
+]
 dev = [
     "pandas-stubs>=2.3.0.250703",
     "pre-commit>=4.2.0",
@@ -39,11 +43,12 @@ dev = [
 notebook = [
     "ipykernel>=6.30.0",
     "ipython>=9.4.0",
-    "jupyter>=1.1.1",
+    "jupyterlab>=4.4.5",
     "matplotlib>=3.10.3",
     "nbconvert>=7.16.6",
     "notebook>=7.4.4",
     "seaborn>=0.13.2",
+    "voila>=0.5.8",
 ]
 
 [tool.ruff]

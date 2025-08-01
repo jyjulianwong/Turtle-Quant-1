@@ -28,8 +28,8 @@ class BaseDataStorageAdapter(ABC):
     def load_ohlcv(
         self,
         symbol: str,
-        start_date: datetime,
-        end_date: datetime,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
     ) -> pd.DataFrame:
         """Load OHLCV data for a symbol.
 
@@ -40,6 +40,15 @@ class BaseDataStorageAdapter(ABC):
 
         Returns:
             DataFrame with OHLCV data.
+        """
+        pass
+
+    @abstractmethod
+    def delete_data(self, symbol: str) -> None:
+        """Delete data for a symbol from storage.
+
+        Args:
+            symbol: Symbol to delete data for.
         """
         pass
 

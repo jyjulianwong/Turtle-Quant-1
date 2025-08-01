@@ -5,17 +5,16 @@ import pandas as pd
 from turtle_quant_1.strategies.base import BaseStrategy
 
 
-class RelativeStrengthIndexStrategy(BaseStrategy):
+class RelativeStrengthIndex(BaseStrategy):
     """A strategy that uses the RSI to generate buy and sell signals."""
 
-    def __init__(self, name: str = "RelativeStrengthIndexStrategy", candles: int = 120):
+    def __init__(self, candles: int = 120):
         """Initialize the RSI strategy.
 
         Args:
-            name: The name of the strategy.
             candles: The number of periods to use for the RSI.
         """
-        super().__init__(name)
+        super().__init__()
         self.candles = candles
 
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:

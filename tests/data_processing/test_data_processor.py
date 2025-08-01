@@ -7,9 +7,11 @@ import pandas as pd
 import pytest
 
 from turtle_quant_1.data_processing.base import BaseDataMaintainer
-from turtle_quant_1.data_processing.gcs_storage_adapter import GCSDataStorageAdapter
+from turtle_quant_1.data_processing.adapters.gcs_storage_adapter import (
+    GCSDataStorageAdapter,
+)
 from turtle_quant_1.data_processing.processor import DataProcessor
-from turtle_quant_1.data_processing.yfinance_fetcher import YFinanceDataFetcher
+from turtle_quant_1.data_processing.adapters.yfinance_fetcher import YFinanceDataFetcher
 
 
 @pytest.fixture

@@ -4,12 +4,12 @@ from typing import Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression as SklearnLinearRegression
 
 from turtle_quant_1.strategies.base import BaseStrategy
 
 
-class LinearRegressionStrategy(BaseStrategy):
+class LinearRegression(BaseStrategy):
     """A naive, simple linear regression strategy that uses linear regression to determine trend direction.
 
     The strategy fits a linear regression line to recent closing prices and uses the slope
@@ -19,16 +19,13 @@ class LinearRegressionStrategy(BaseStrategy):
     - Slope near zero -> neutral score (hold signal)
     """
 
-    def __init__(
-        self, name: str = "LinearRegressionStrategy", lookback_candles: int = 120
-    ):
+    def __init__(self, lookback_candles: int = 120):
         """Initialize the linear regression strategy.
 
         Args:
             lookback_candles: Number of recent periods to use for trend calculation.
-            name: Name of the strategy.
         """
-        super().__init__(name)
+        super().__init__()
         self.lookback_candles = lookback_candles
 
     def _get_coefficients(self, data: pd.DataFrame, symbol: str) -> Tuple[float, float]:
@@ -60,7 +57,7 @@ class LinearRegressionStrategy(BaseStrategy):
         y = recent_data["Close"].values
 
         # Fit linear regression to get trend slope
-        reg = LinearRegression()
+        reg = SklearnLinearRegression()
         reg.fit(X, y)
         slope = reg.coef_[0]
 

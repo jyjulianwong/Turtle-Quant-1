@@ -6,8 +6,10 @@ from typing import Dict, List, Tuple
 
 import pandas as pd
 import pytz
+import quantstats as qs
 
 from turtle_quant_1.backtesting.portfolio import Portfolio
+from turtle_quant_1.backtesting.models import TestCaseResults, PortfolioSummary
 from turtle_quant_1.config import (
     BACKTESTING_MAX_LOOKBACK_DAYS,
     BACKTESTING_MAX_LOOKFORWARD_DAYS,
@@ -61,6 +63,9 @@ class BacktestingEngine:
             self.data_cache[symbol] = self._load_data_for_symbol(
                 symbol, impute_data=True
             )
+
+        # For quantstats metrics
+        self.portfolio_returns: List[Tuple[datetime, float]] = []
 
         logger.info(f"Initialized backtesting engine for symbols: {self.symbols}")
 
@@ -223,7 +228,7 @@ class BacktestingEngine:
 
         elif signal_action == SignalAction.SELL:
             # Sell all holdings of this symbol
-            success = self.portfolio.sell_all(symbol, price, timestamp)
+            success = self.portfolio.sell_holdings(symbol, price, timestamp)
             if success:
                 logger.debug(f"SELL ALL: {symbol} at ${price:.2f} on {timestamp}")
             else:
@@ -233,11 +238,11 @@ class BacktestingEngine:
         # HOLD - No action
         return False
 
-    def run_backtest(self) -> Dict:
+    def run_backtest(self) -> TestCaseResults:
         """Run the backtesting simulation.
 
         Returns:
-            Dictionary with backtesting results.
+            BacktestingResults with backtesting results.
         """
         logger.info("Starting backtesting simulation...")
 
@@ -309,13 +314,13 @@ class BacktestingEngine:
                 if transaction_executed:
                     total_transactions += 1
 
+            # Record portfolio value for returns calculation (once per timestamp)
+            if current_prices:  # Only record if we have price data
+                portfolio_value = self.portfolio.get_portfolio_value(current_prices)
+                self.portfolio_returns.append((timestamp, portfolio_value))
+
             # Log progress periodically
             if i % 100 == 0:  # Every 100 simulation ticks
-                portfolio_value = (
-                    self.portfolio.get_portfolio_value(current_prices)
-                    if current_prices
-                    else self.initial_capital
-                )
                 logger.info(
                     f"Progress: {i}/{len(simulation_ticks)} ({100 * i / len(simulation_ticks):.1f}%) | "
                     f"Portfolio Value: ${portfolio_value:.2f}"
@@ -332,29 +337,87 @@ class BacktestingEngine:
                     final_prices[symbol] = final_data.iloc[-1]["Close"]
 
         final_portfolio_value = self.portfolio.get_portfolio_value(final_prices)
-        total_return = self.portfolio.get_total_return(final_prices)
+        total_return = self.portfolio.get_return_dollars(final_prices)
 
-        results = {
-            "initial_capital": self.initial_capital,
-            "final_portfolio_value": final_portfolio_value,
-            "final_holdings": self.portfolio.get_current_holdings(),
-            "final_cash": self.portfolio.cash,
-            "total_return_dollars": total_return,
-            "total_return_percent": self.portfolio.get_return_percentage(final_prices),
-            "total_signals": total_signals,
-            "total_transactions": total_transactions,
-            "total_simulation_ticks": len(simulation_ticks),
-            "simulation_start": simulation_start,
-            "simulation_end": simulation_end,
-            "symbols_traded": self.symbols,
-            "transaction_history": self.portfolio.get_transaction_history(),
-            "portfolio_summary": self.portfolio.get_summary(final_prices),
-        }
+        # Create portfolio summary and results directly
+        portfolio_summary = self.portfolio.get_summary(final_prices)
+
+        results = TestCaseResults(
+            initial_capital=self.initial_capital,
+            final_portfolio_value=final_portfolio_value,
+            final_holdings=self.portfolio.get_current_holdings(),
+            final_cash=self.portfolio.cash,
+            total_return_dollars=total_return,
+            total_return_percent=self.portfolio.get_return_percent(final_prices),
+            portfolio_summary=PortfolioSummary(**portfolio_summary),
+            total_signals=total_signals,
+            total_transactions=total_transactions,
+            total_simulation_ticks=len(simulation_ticks),
+            symbols_traded=self.symbols,
+            transaction_history=self.portfolio.get_transaction_history(),
+            simulation_start=simulation_start,
+            simulation_end=simulation_end,
+            metrics=self.get_metrics(benchmark="SPY"),  # TODO: Hard-coded.
+        )
 
         logger.info(
             f"Backtesting complete. Total return: ${total_return:.2f} "
-            f"({self.portfolio.get_return_percentage(final_prices):.2f}%) | "
+            f"({self.portfolio.get_return_percent(final_prices):.2f}%) | "
             f"Signals generated: {total_signals} | Transactions: {total_transactions}"
         )
 
         return results
+
+    def get_metrics(self, benchmark: str = "SPY") -> Dict:
+        """Calculate metrics for the portfolio performance.
+
+        NOTE: This is currently a wrapper around quantstats metrics.
+        TODO: Implement our own metrics.
+
+        Args:
+            benchmark: Benchmark symbol to compare against (default: SPY)
+
+        Returns:
+            Dictionary containing quantstats metrics
+        """
+        if len(self.portfolio_returns) < 2:
+            logger.warning("Not enough portfolio returns data for metrics")
+            logger.warning("Run the backtest first before calculating metrics")
+            return {}
+
+        try:
+            # Convert portfolio values to returns
+            df_returns = pd.DataFrame(
+                self.portfolio_returns, columns=["date", "portfolio_value"]
+            )
+
+            # Remove duplicate timestamps if any
+            df_returns = df_returns.drop_duplicates(subset=["date"], keep="last")
+
+            # Sort by date to ensure proper chronological order
+            df_returns = df_returns.sort_values("date")
+
+            # Set index and calculate returns
+            df_returns = df_returns.set_index("date")
+            df_returns["returns"] = df_returns["portfolio_value"].pct_change().dropna()
+
+            if df_returns["returns"].empty or len(df_returns["returns"]) < 2:
+                logger.warning("Insufficient returns data for quantstats metrics")
+                return {}
+
+            # Calculate quantstats metrics
+            metrics = qs.reports.metrics(
+                returns=df_returns["returns"],
+                benchmark=benchmark,
+                display=False,
+            )
+            if metrics is None:
+                raise ValueError("Quantstats metrics returned None")
+
+            return (
+                metrics.to_dict() if hasattr(metrics, "to_dict") else dict(metrics)
+            )  # pyrefly: ignore[no-any-return]
+
+        except Exception as e:
+            logger.error(f"Failed to calculate quantstats metrics: {e}")
+            return {}

@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -54,13 +54,9 @@ class Signal(BaseModel):
 class BaseStrategy(ABC):
     """Base class for trading strategies."""
 
-    def __init__(self, name: str):
-        """Initialize the strategy.
-
-        Args:
-            name: Name of the strategy.
-        """
-        self.name = name
+    def __init__(self):
+        """Initialize the strategy."""
+        pass
 
     @abstractmethod
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
@@ -120,8 +116,8 @@ class BaseStrategyEngine(ABC):
     def __init__(
         self,
         strategies: List[BaseStrategy],
-        weights: Optional[List[float]] = None,
-        buy_threshold: float = 0.3,
+        weights: List[float] = [],
+        buy_unit_threshold: float = 0.3,
         sell_threshold: float = -0.3,
     ):
         """Initialize the strategy engine.
@@ -136,7 +132,7 @@ class BaseStrategyEngine(ABC):
 
         self.strategies = strategies
 
-        if weights is None:
+        if not weights:
             # Equal weights
             self.weights = [1.0 / len(strategies)] * len(strategies)
         else:
@@ -152,12 +148,12 @@ class BaseStrategyEngine(ABC):
 
             self.weights = weights
 
-        if not (-1.0 <= sell_threshold <= buy_threshold <= 1.0):
+        if not (-1.0 <= sell_threshold <= buy_unit_threshold <= 1.0):
             raise ValueError(
-                "Thresholds must satisfy: -1.0 <= sell_threshold <= buy_threshold <= 1.0"
+                "Thresholds must satisfy: -1.0 <= sell_threshold <= buy_unit_threshold <= 1.0"
             )
 
-        self.buy_threshold = buy_threshold
+        self.buy_unit_threshold = buy_unit_threshold
         self.sell_threshold = sell_threshold
 
     @abstractmethod
@@ -199,5 +195,5 @@ class BaseStrategyEngine(ABC):
         breakdown = {}
         for strategy in self.strategies:
             score = strategy.generate_prediction_score(data, symbol)
-            breakdown[strategy.name] = max(-1.0, min(1.0, score))
+            breakdown[type(strategy).__name__] = max(-1.0, min(1.0, score))
         return breakdown

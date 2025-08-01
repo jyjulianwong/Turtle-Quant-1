@@ -30,6 +30,25 @@ uv run pre-commit install
 
 (TBC.)
 
+## Get started with Jupyter notebooks
+
+1. Once the above setup is complete, set up a Python kernel.
+```bash
+source .venv/bin/activate
+python -m ipykernel install --user --name=turtle-quant-1
+```
+
+2. Refer to the following common commands.
+```bash
+jupyter kernelspec list
+jupyter kernelspec uninstall turtle-quant-1
+```
+
+3. Start the Jupyter server.
+```bash
+jupyter lab
+```
+
 ## Deployment
 
 For naming conventions, refer to https://stepan.wtf/cloud-naming-convention/.
