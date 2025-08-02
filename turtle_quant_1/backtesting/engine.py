@@ -1,5 +1,6 @@
 """Backtesting engine for strategy evaluation."""
 
+import threading
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
@@ -23,6 +24,9 @@ from turtle_quant_1.strategies.base import BaseStrategyEngine, SignalAction
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+GLOBAL_DATA_CACHE: dict[str, pd.DataFrame] = {}
+GLOBAL_DATA_CACHE_LOCK = threading.Lock()
 
 
 class BacktestingEngine:
@@ -60,9 +64,12 @@ class BacktestingEngine:
         self.data_processor = DataProcessor(symbols=self.symbols)
         self.data_cache: dict[str, pd.DataFrame] = {}
         for symbol in self.symbols:
-            self.data_cache[symbol] = self._load_data_for_symbol(
-                symbol, impute_data=True
-            )
+            with GLOBAL_DATA_CACHE_LOCK:
+                if symbol not in GLOBAL_DATA_CACHE:
+                    GLOBAL_DATA_CACHE[symbol] = self._load_data_for_symbol(
+                        symbol, impute_data=True
+                    )
+                self.data_cache[symbol] = GLOBAL_DATA_CACHE[symbol]
 
         # For quantstats metrics
         self.portfolio_returns: List[Tuple[datetime, float]] = []

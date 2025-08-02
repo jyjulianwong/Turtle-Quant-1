@@ -5,6 +5,9 @@ import inspect
 import pkgutil
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Any, Dict, List, Tuple, Type
+import atexit
+import threading
+import weakref
 
 import pandas as pd
 
@@ -48,17 +51,47 @@ def _run_strategy_process(
     return strategy_name, score, weighted_score
 
 
+class _ExecutorManager:
+    """Manages ProcessPoolExecutor instances to avoid resource conflicts."""
+
+    def __init__(self):
+        self._executors = weakref.WeakSet()
+        self._lock = threading.Lock()
+        # Register cleanup on process exit
+        atexit.register(self._cleanup_all)
+
+    def create_executor(self, n_workers: int = 4) -> ProcessPoolExecutor:
+        """Create a new ProcessPoolExecutor instance."""
+        with self._lock:
+            executor = ProcessPoolExecutor(max_workers=n_workers)
+            self._executors.add(executor)
+            return executor
+
+    def _cleanup_all(self):
+        """Cleanup all managed executors."""
+        with self._lock:
+            # Create a list to avoid modifying WeakSet during iteration
+            executors_to_cleanup = list(self._executors)
+            for executor in executors_to_cleanup:
+                try:
+                    executor.shutdown(wait=False)
+                except Exception:
+                    pass  # Ignore cleanup errors
+
+
+# Global executor manager
+_executor_manager = _ExecutorManager()
+
+
 class StrategyEngine(BaseStrategyEngine):
     """Strategy engine that aggregates multiple strategies to generate trading signals.
 
     The engine combines multiple strategy scores using weighted averages and converts
     the final aggregated score to actionable trading signals (BUY, HOLD, SELL).
 
-    This implementation uses multiprocessing for better CPU utilization.
+    This implementation uses instance-level multiprocessing for thread-safety and
+    proper resource management in multi-process environments.
     """
-
-    # Class-level process pool executor
-    _executor = ProcessPoolExecutor(max_workers=4)
 
     @classmethod
     def _get_strategy_types(cls) -> Dict[str, Type[BaseStrategy]]:
@@ -112,20 +145,13 @@ class StrategyEngine(BaseStrategyEngine):
             else -0.3,
         )
 
-    @classmethod
-    def shutdown(cls):
-        """Shutdown the process pool executor.
-
-        This should be called when the application is shutting down to ensure proper cleanup.
-        """
-        cls._executor.shutdown(wait=True)
-
     def __init__(
         self,
         strategies: List[BaseStrategy],
         weights: List[float] = [],
         buy_unit_threshold: float = 0.3,
         sell_threshold: float = -0.3,
+        n_workers: int = 4,
     ):
         """Initialize the strategy engine.
 
@@ -134,6 +160,7 @@ class StrategyEngine(BaseStrategyEngine):
             weights: Optional list of weights for each strategy. If None, equal weights are used.
             buy_unit_threshold: Minimum aggregated score to generate a BUY signal (default: 0.3).
             sell_threshold: Maximum aggregated score to generate a SELL signal (default: -0.3).
+            n_workers: Maximum number of worker processes for parallel execution (default: 4).
         """
         super().__init__(strategies, weights, buy_unit_threshold, sell_threshold)
 
@@ -146,6 +173,33 @@ class StrategyEngine(BaseStrategyEngine):
             self._strategy_init_info.append((strategy_type, strategy_params))
 
         self._last_scores = {}
+
+        # Create instance-level executor for process safety
+        self._n_workers = n_workers
+        self._executor = None
+        self._executor_lock = threading.Lock()
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with cleanup."""
+        if self._executor is not None:
+            with self._executor_lock:
+                if self._executor is not None:
+                    self._executor.shutdown(wait=True)
+                    self._executor = None
+
+    def _get_executor(self) -> ProcessPoolExecutor:
+        """Get or create the ProcessPoolExecutor for this instance."""
+        if self._executor is None:
+            with self._executor_lock:
+                if self._executor is None:  # Double-check locking
+                    self._executor = _executor_manager.create_executor(
+                        self._n_workers
+                    )  # pyrefly: ignore[bad-assignment]
+        return self._executor  # pyrefly: ignore[bad-return]
 
     def get_signal_confidence(self, data: pd.DataFrame, symbol: str) -> float:
         """Post-analysis metric. Calculate confidence level for the generated signal.
@@ -198,8 +252,8 @@ class StrategyEngine(BaseStrategyEngine):
     def aggregate_scores(self, data: pd.DataFrame, symbol: str) -> float:
         """Aggregate scores from all strategies using weighted average with parallel processing.
 
-        This method uses multiprocessing for better CPU utilization when calculating
-        strategy scores. Each strategy runs in a separate process.
+        This method uses instance-level multiprocessing for better CPU utilization and
+        process safety when multiple StrategyEngine instances are used simultaneously.
 
         Args:
             data: DataFrame with OHLCV data.
@@ -211,12 +265,15 @@ class StrategyEngine(BaseStrategyEngine):
         total_score = 0.0
         strategy_scores = {}
 
+        # Get the executor for this instance
+        executor = self._get_executor()
+
         # Submit tasks to the process pool
         future_to_strategy = {}
         for (strategy_type, strategy_params), weight in zip(
             self._strategy_init_info, self.weights
         ):
-            future = self._executor.submit(
+            future = executor.submit(
                 _run_strategy_process,
                 strategy_type,
                 strategy_params,

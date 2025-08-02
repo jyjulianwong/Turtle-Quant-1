@@ -62,27 +62,26 @@ def run_backtest(
     Returns:
         BacktestingResults object
     """
-    # Create strategy engine from config
-    strategy_engine = StrategyEngine.from_config(config)
+    # Use context manager for proper resource cleanup
+    with StrategyEngine.from_config(config) as strategy_engine:
+        # Create backtesting engine
+        backtesting_engine = BacktestingEngine(
+            strategy_engine=strategy_engine,
+            initial_capital=initial_capital,
+            max_lookback_days=60,  # NOTE: Shorter for faster optimization
+            max_lookforward_days=60,  # NOTE: Shorter for faster optimization
+        )
 
-    # Create backtesting engine
-    backtesting_engine = BacktestingEngine(
-        strategy_engine=strategy_engine,
-        initial_capital=initial_capital,
-        max_lookback_days=60,  # NOTE: Shorter for faster optimization
-        max_lookforward_days=60,  # NOTE: Shorter for faster optimization
-    )
+        # Run backtest
+        results = backtesting_engine.run_backtest()
 
-    # Run backtest
-    results = backtesting_engine.run_backtest()
+        # Get evaluation metrics
+        metrics = backtesting_engine.get_metrics(benchmark="SPY")
 
-    # Get evaluation metrics
-    metrics = backtesting_engine.get_metrics(benchmark="SPY")
+        # Combine results
+        results.metrics = metrics
 
-    # Combine results
-    results.metrics = metrics
-
-    return results
+        return results
 
 
 def get_objective_metric(
@@ -197,7 +196,7 @@ def run_hyperparameter_tuning(
 
 if __name__ == "__main__":
     # Run optimization
-    study = run_hyperparameter_tuning(n_trials=10, n_jobs=-1)
+    study = run_hyperparameter_tuning(n_trials=10, n_jobs=4)
 
     # Test the best configuration
     logger.info("Testing best configuration...")
