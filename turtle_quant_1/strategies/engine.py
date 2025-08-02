@@ -3,8 +3,7 @@
 import importlib
 import inspect
 import pkgutil
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Lock
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Any, Dict, List, Tuple, Type
 
 import pandas as pd
@@ -18,16 +17,48 @@ from turtle_quant_1.strategies.base import (
 )
 
 
+def _run_strategy_process(
+    strategy_type: Type[BaseStrategy],
+    strategy_params: Dict[str, Any],
+    weight: float,
+    data: pd.DataFrame,
+    symbol: str,
+) -> Tuple[str, float, float]:
+    """Process a single strategy in a separate process and return its score.
+
+    This function is defined at module level to ensure it's pickle-able for multiprocessing.
+
+    Args:
+        strategy_type: Strategy class to instantiate
+        strategy_params: Parameters to initialize the strategy
+        weight: Weight for this strategy
+        data: DataFrame with OHLCV data
+        symbol: The symbol being analyzed
+
+    Returns:
+        Tuple of (strategy name, raw score, weighted score)
+    """
+    # Instantiate strategy in the worker process
+    strategy = strategy_type(**strategy_params)
+    strategy_name = strategy_type.__name__
+    score = strategy.generate_prediction_score(data, symbol)
+    # Ensure score is within bounds
+    score = max(-1.0, min(1.0, score))
+    weighted_score = score * weight
+    return strategy_name, score, weighted_score
+
+
 class StrategyEngine(BaseStrategyEngine):
     """Strategy engine that aggregates multiple strategies to generate trading signals.
 
     The engine combines multiple strategy scores using weighted averages and converts
     the final aggregated score to actionable trading signals (BUY, HOLD, SELL).
+
+    This implementation uses multiprocessing for better CPU utilization.
     """
 
-    # Class-level thread pool executor
-    _executor = ThreadPoolExecutor(max_workers=4)
-    _executor_lock = Lock()
+    # Class-level process pool executor
+    _executor = ProcessPoolExecutor(max_workers=4)
 
     @classmethod
     def _get_strategy_types(cls) -> Dict[str, Type[BaseStrategy]]:
@@ -81,6 +112,14 @@ class StrategyEngine(BaseStrategyEngine):
             else -0.3,
         )
 
+    @classmethod
+    def shutdown(cls):
+        """Shutdown the process pool executor.
+
+        This should be called when the application is shutting down to ensure proper cleanup.
+        """
+        cls._executor.shutdown(wait=True)
+
     def __init__(
         self,
         strategies: List[BaseStrategy],
@@ -97,8 +136,16 @@ class StrategyEngine(BaseStrategyEngine):
             sell_threshold: Maximum aggregated score to generate a SELL signal (default: -0.3).
         """
         super().__init__(strategies, weights, buy_unit_threshold, sell_threshold)
-        self._scores = {}
-        self._scores_lock = Lock()  # Add thread-safe lock for scores dictionary
+
+        # Store strategy types and their initialization parameters for multiprocessing
+        self._strategy_init_info = []
+        for strategy in strategies:
+            strategy_type = type(strategy)
+            # Extract initialization parameters from the strategy instance
+            strategy_params = strategy.__dict__.copy()
+            self._strategy_init_info.append((strategy_type, strategy_params))
+
+        self._last_scores = {}
 
     def get_signal_confidence(self, data: pd.DataFrame, symbol: str) -> float:
         """Post-analysis metric. Calculate confidence level for the generated signal.
@@ -148,32 +195,11 @@ class StrategyEngine(BaseStrategyEngine):
 
         return agreement
 
-    def _run_strategy(
-        self, strategy: BaseStrategy, weight: float, data: pd.DataFrame, symbol: str
-    ) -> Tuple[str, float, float]:
-        """Process a single strategy and return its score.
-
-        Args:
-            strategy: Strategy instance to process
-            weight: Weight for this strategy
-            data: DataFrame with OHLCV data
-            symbol: The symbol being analyzed
-
-        Returns:
-            Tuple of (strategy name, raw score, weighted score)
-        """
-        strategy_name = type(strategy).__name__
-        score = strategy.generate_prediction_score(data, symbol)
-        # Ensure score is within bounds
-        score = max(-1.0, min(1.0, score))
-        weighted_score = score * weight
-        return strategy_name, score, weighted_score
-
     def aggregate_scores(self, data: pd.DataFrame, symbol: str) -> float:
         """Aggregate scores from all strategies using weighted average with parallel processing.
 
-        This method is thread-safe and can be called from multiple threads simultaneously.
-        It uses a shared thread pool executor at the class level for efficient resource management.
+        This method uses multiprocessing for better CPU utilization when calculating
+        strategy scores. Each strategy runs in a separate process.
 
         Args:
             data: DataFrame with OHLCV data.
@@ -183,27 +209,35 @@ class StrategyEngine(BaseStrategyEngine):
             Aggregated score between -1.0 and +1.0.
         """
         total_score = 0.0
+        strategy_scores = {}
 
-        # Submit tasks to the shared executor
-        with self._executor_lock:  # Ensure thread-safe submission of tasks
-            future_to_strategy = {
-                self._executor.submit(
-                    self._run_strategy, strategy, weight, data, symbol
-                ): strategy
-                for strategy, weight in zip(self.strategies, self.weights)
-            }
+        # Submit tasks to the process pool
+        future_to_strategy = {}
+        for (strategy_type, strategy_params), weight in zip(
+            self._strategy_init_info, self.weights
+        ):
+            future = self._executor.submit(
+                _run_strategy_process,
+                strategy_type,
+                strategy_params,
+                weight,
+                data,
+                symbol,
+            )
+            future_to_strategy[future] = strategy_type.__name__
 
         # Process completed tasks
         for future in as_completed(future_to_strategy):
             try:
                 strategy_name, score, weighted_score = future.result()
-                # Thread-safe update of scores dictionary
-                with self._scores_lock:
-                    self._scores[strategy_name] = score
+                strategy_scores[strategy_name] = score
                 total_score += weighted_score
             except Exception as e:
                 # Log the error but continue processing other strategies
-                print(f"Error processing strategy: {e}")
+                print(f"Error processing strategy {future_to_strategy[future]}: {e}")
+
+        # Store scores for use in other methods
+        self._last_scores = strategy_scores
 
         return total_score
 
@@ -229,11 +263,11 @@ class StrategyEngine(BaseStrategyEngine):
             action = SignalAction.HOLD
 
         # Get strategy names, scores, and weights
-        strategy_names = [type(strategy).__name__ for strategy in self.strategies]
-        strategy_scores = self._scores
+        strategy_names = [info[0].__name__ for info in self._strategy_init_info]
+        strategy_scores = self._last_scores
         strategy_weights = {
-            type(strategy).__name__: weight
-            for strategy, weight in zip(self.strategies, self.weights)
+            info[0].__name__: weight
+            for info, weight in zip(self._strategy_init_info, self.weights)
         }
 
         # Create and return Signal object
@@ -245,10 +279,16 @@ class StrategyEngine(BaseStrategyEngine):
             score=aggregated_score,
         )
 
-    @classmethod
-    def shutdown(cls):
-        """Shutdown the thread pool executor.
+    def get_breakdown(self, data: pd.DataFrame, symbol: str) -> Dict[str, float]:
+        """Get individual strategy scores breakdown.
 
-        This should be called when the application is shutting down to ensure proper cleanup.
+        Args:
+            data: DataFrame with OHLCV data.
+            symbol: The symbol being analyzed.
+
+        Returns:
+            Dictionary mapping strategy names to their individual scores.
         """
-        cls._executor.shutdown(wait=True)
+        # Run aggregate_scores to populate _last_scores if needed
+        self.aggregate_scores(data, symbol)
+        return self._last_scores
