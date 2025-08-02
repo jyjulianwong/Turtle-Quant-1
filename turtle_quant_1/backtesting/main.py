@@ -12,18 +12,12 @@ from turtle_quant_1.backtesting.runner import (
     BacktestingTestRunner,
 )
 from turtle_quant_1.strategies.engine import StrategyEngine
-from turtle_quant_1.strategies.momentum.linear_regression import (
+from turtle_quant_1.strategies.momentum import (
     LinearRegression,
-)
-from turtle_quant_1.strategies.momentum.moving_average_crossover import (
     MovingAverageCrossover,
-)
-from turtle_quant_1.strategies.momentum.relative_strength_index import (
     RelativeStrengthIndex,
 )
-from turtle_quant_1.strategies.mean_reversion.bollinger_band import (
-    BollingerBand,
-)
+from turtle_quant_1.strategies.mean_reversion import BollingerBand
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
