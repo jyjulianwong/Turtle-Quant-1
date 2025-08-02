@@ -10,8 +10,8 @@ class MovingAverageCrossover(BaseStrategy):
 
     def __init__(
         self,
-        sma_candles: int = 30,
-        lma_candles: int = 120,
+        sma_candles: int = 5,
+        lma_candles: int = 180,
     ):
         """Initialize the moving average crossover strategy.
 
@@ -25,16 +25,30 @@ class MovingAverageCrossover(BaseStrategy):
         self.lma_candles = lma_candles
 
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
-        """Generate a historical score array for a symbol based on market data."""
+        """Generate a historical score array for a symbol based on market data.
+
+        Args:
+            data: DataFrame with OHLCV data.
+            symbol: The symbol being analyzed.
+
+        Returns:
+            Score array with each value between -1.0 and +1.0, indexed by datetime
+        """
 
         self.validate_data(data)
 
-        sma = data["Close"].rolling(self.sma_candles).mean()
-        lma = data["Close"].rolling(self.lma_candles).mean()
+        data_sorted = data.sort_values("datetime").copy()
 
-        score = (sma - lma) / data["Close"]
+        sma = data_sorted["Close"].rolling(self.sma_candles).mean()
+        lma = data_sorted["Close"].rolling(self.lma_candles).mean()
 
-        return score.fillna(0).clip(-1, 1)
+        scaling_factor = 10.0
+        score = (sma - lma) * scaling_factor / data_sorted["Close"]
+
+        return pd.Series(
+            data=score.fillna(0).clip(-1, 1).values,
+            index=pd.to_datetime(data_sorted["datetime"]),
+        )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
         """Generate a score for the strategy.

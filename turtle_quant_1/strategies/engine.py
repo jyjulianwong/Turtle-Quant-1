@@ -3,7 +3,9 @@
 import importlib
 import inspect
 import pkgutil
-from typing import Any, Dict, List, Type
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
+from typing import Any, Dict, List, Tuple, Type
 
 import pandas as pd
 
@@ -22,6 +24,10 @@ class StrategyEngine(BaseStrategyEngine):
     The engine combines multiple strategy scores using weighted averages and converts
     the final aggregated score to actionable trading signals (BUY, HOLD, SELL).
     """
+
+    # Class-level thread pool executor
+    _executor = ThreadPoolExecutor(max_workers=4)
+    _executor_lock = Lock()
 
     @classmethod
     def _get_strategy_types(cls) -> Dict[str, Type[BaseStrategy]]:
@@ -91,9 +97,8 @@ class StrategyEngine(BaseStrategyEngine):
             sell_threshold: Maximum aggregated score to generate a SELL signal (default: -0.3).
         """
         super().__init__(strategies, weights, buy_unit_threshold, sell_threshold)
-
-        # TODO: Refactor.
         self._scores = {}
+        self._scores_lock = Lock()  # Add thread-safe lock for scores dictionary
 
     def get_signal_confidence(self, data: pd.DataFrame, symbol: str) -> float:
         """Post-analysis metric. Calculate confidence level for the generated signal.
@@ -143,8 +148,32 @@ class StrategyEngine(BaseStrategyEngine):
 
         return agreement
 
+    def _run_strategy(
+        self, strategy: BaseStrategy, weight: float, data: pd.DataFrame, symbol: str
+    ) -> Tuple[str, float, float]:
+        """Process a single strategy and return its score.
+
+        Args:
+            strategy: Strategy instance to process
+            weight: Weight for this strategy
+            data: DataFrame with OHLCV data
+            symbol: The symbol being analyzed
+
+        Returns:
+            Tuple of (strategy name, raw score, weighted score)
+        """
+        strategy_name = type(strategy).__name__
+        score = strategy.generate_prediction_score(data, symbol)
+        # Ensure score is within bounds
+        score = max(-1.0, min(1.0, score))
+        weighted_score = score * weight
+        return strategy_name, score, weighted_score
+
     def aggregate_scores(self, data: pd.DataFrame, symbol: str) -> float:
-        """Aggregate scores from all strategies using weighted average.
+        """Aggregate scores from all strategies using weighted average with parallel processing.
+
+        This method is thread-safe and can be called from multiple threads simultaneously.
+        It uses a shared thread pool executor at the class level for efficient resource management.
 
         Args:
             data: DataFrame with OHLCV data.
@@ -155,12 +184,26 @@ class StrategyEngine(BaseStrategyEngine):
         """
         total_score = 0.0
 
-        for strategy, weight in zip(self.strategies, self.weights):
-            score = strategy.generate_prediction_score(data, symbol)
-            self._scores[type(strategy).__name__] = score  # Save scores for later use
-            # Ensure score is within bounds
-            score = max(-1.0, min(1.0, score))
-            total_score += score * weight
+        # Submit tasks to the shared executor
+        with self._executor_lock:  # Ensure thread-safe submission of tasks
+            future_to_strategy = {
+                self._executor.submit(
+                    self._run_strategy, strategy, weight, data, symbol
+                ): strategy
+                for strategy, weight in zip(self.strategies, self.weights)
+            }
+
+        # Process completed tasks
+        for future in as_completed(future_to_strategy):
+            try:
+                strategy_name, score, weighted_score = future.result()
+                # Thread-safe update of scores dictionary
+                with self._scores_lock:
+                    self._scores[strategy_name] = score
+                total_score += weighted_score
+            except Exception as e:
+                # Log the error but continue processing other strategies
+                print(f"Error processing strategy: {e}")
 
         return total_score
 
@@ -201,3 +244,11 @@ class StrategyEngine(BaseStrategyEngine):
             action=action,
             score=aggregated_score,
         )
+
+    @classmethod
+    def shutdown(cls):
+        """Shutdown the thread pool executor.
+
+        This should be called when the application is shutting down to ensure proper cleanup.
+        """
+        cls._executor.shutdown(wait=True)

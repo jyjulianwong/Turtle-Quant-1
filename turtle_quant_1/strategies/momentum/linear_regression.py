@@ -41,7 +41,6 @@ class LinearRegression(BaseStrategy):
 
         self.validate_data(data)
 
-        # Ensure data is sorted by datetime
         data_sorted = data.sort_values("datetime").copy()
 
         # Use the specified number of recent periods, or all available data if less
@@ -76,15 +75,30 @@ class LinearRegression(BaseStrategy):
             symbol: The symbol being analyzed.
 
         Returns:
-            Score array with each value between -1.0 and +1.0
+            Score array with each value between -1.0 and +1.0, indexed by datetime
         """
         slope, mean_price = self._get_coefficients(data, symbol)
 
-        # Generate x values (e.g., from 0 to 10)
-        x = np.linspace(0, len(data), len(data))
+        data_sorted = data.sort_values("datetime").copy()
 
-        # Calculate y values
-        return pd.Series(slope * x + mean_price).fillna(0)  # TODO: This is not correct.
+        relative_slope = slope / mean_price
+
+        # Scale the relative slope to generate score between -1 and +1
+        # We use a sigmoid-like function to map slope to score
+        # Adjust the scaling factor based on typical price movements
+        scaling_factor = 1000.0  # This can be tuned based on the asset volatility
+
+        # Use tanh to map to [-1, 1] range smoothly
+        score = np.tanh(relative_slope * scaling_factor)
+
+        # Calculate trend line values
+        x = np.arange(len(data_sorted))
+        y = score * x
+
+        return pd.Series(
+            data=y,  # TODO: This is not correct.
+            index=pd.to_datetime(data_sorted["datetime"]),
+        ).fillna(0)
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
         """Generate a trading score based on linear regression analysis.

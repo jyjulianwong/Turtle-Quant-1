@@ -8,7 +8,7 @@ from turtle_quant_1.strategies.base import BaseStrategy
 class BollingerBand(BaseStrategy):
     """A strategy that uses the Bollinger bands to generate buy and sell signals."""
 
-    def __init__(self, window: int = 120, n_std: int = 2):
+    def __init__(self, window: int = 180, n_std: int = 3):
         """Initialize the Bollinger band strategy.
 
         Args:
@@ -27,17 +27,25 @@ class BollingerBand(BaseStrategy):
             symbol: The symbol to use for the strategy.
 
         Returns:
-            A score array with each value between -1.0 and +1.0.
+            Score array with each value between -1.0 and +1.0, indexed by datetime
         """
         self.validate_data(data)
 
-        ma = data["Close"].rolling(self.window).mean()
-        std = data["Close"].rolling(self.window).std()
+        data_sorted = data.sort_values("datetime").copy()
+
+        ma = data_sorted["Close"].rolling(self.window).mean()
+        std = data_sorted["Close"].rolling(self.window).std()
 
         upper = ma + self.n_std * std
         lower = ma - self.n_std * std
 
-        return ((data["Close"] - ma) / (upper - lower)).clip(-1, 1).fillna(0)
+        return pd.Series(
+            data=((data_sorted["Close"] - ma) / (upper - lower))
+            .clip(-1, 1)
+            .fillna(0)
+            .values,
+            index=pd.to_datetime(data_sorted["datetime"]),
+        )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
         """Generate a score for the strategy.
