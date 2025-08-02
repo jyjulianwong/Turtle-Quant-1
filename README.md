@@ -28,8 +28,6 @@ uv sync --all-groups
 uv run pre-commit install
 ```
 
-(TBC.)
-
 ## Get started with Jupyter notebooks
 
 1. Once the above setup is complete, set up a Python kernel.
@@ -49,13 +47,29 @@ jupyter kernelspec uninstall turtle-quant-1
 jupyter lab
 ```
 
+## Common entry points
+
+### Backtesting
+
+Run the following script to run all custom backtesting test cases.
+```bash
+uv run turtle_quant_1/backtesting/main.py
+```
+
+### Hyperparameter tuning
+
+Run the following script to run hyperparameter tuning across all strategies.
+```bash
+uv run turtle_quant_1/backtesting/hyperparameters.py
+```
+
 ## Deployment
 
 For naming conventions, refer to https://stepan.wtf/cloud-naming-convention/.
 
 ### Continuous deployment
 
-(TBC.)
+Deployment is fully automated and handled by GitHub Actions. Refer to [`.github/workflows/test-build-deploy.yaml`](.github/workflows/test-build-deploy.yaml).
 
 ## Google Cloud administration
 
