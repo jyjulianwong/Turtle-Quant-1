@@ -3,6 +3,7 @@
 import pandas as pd
 
 from turtle_quant_1.strategies.base import BaseStrategy
+from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS
 
 
 class MovingAverageCrossover(BaseStrategy):
@@ -23,6 +24,18 @@ class MovingAverageCrossover(BaseStrategy):
         super().__init__()
         self.sma_candles = sma_candles
         self.lma_candles = lma_candles
+
+        if sma_candles >= lma_candles:
+            raise ValueError(
+                f"Short moving average ({sma_candles}) must be less than long moving average ({lma_candles})."
+            )
+
+        # TODO: Respect CANDLE_UNIT.
+        if lma_candles > BACKTESTING_MAX_LOOKBACK_DAYS * 6 * 0.5:
+            raise ValueError(
+                f"This strategy relies on too many lookback candles ({lma_candles}) for meaningful evaluation to be done. "
+                f"Maximum lookback is {BACKTESTING_MAX_LOOKBACK_DAYS} days."
+            )
 
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """Generate a historical score array for a symbol based on market data.

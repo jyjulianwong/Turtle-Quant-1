@@ -3,21 +3,29 @@
 import pandas as pd
 
 from turtle_quant_1.strategies.base import BaseStrategy
+from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS
 
 
 class BollingerBand(BaseStrategy):
     """A strategy that uses the Bollinger bands to generate buy and sell signals."""
 
-    def __init__(self, window: int = 180, n_std: int = 3):
+    def __init__(self, lookback_candles: int = 180, n_std: int = 3):
         """Initialize the Bollinger band strategy.
 
         Args:
-            window: The number of periods to use for the Bollinger bands.
+            lookback_candles: The number of periods to use for the Bollinger bands.
             n_std: The number of standard deviations to use for the Bollinger bands.
         """
         super().__init__()
-        self.window = window
+        self.lookback_candles = lookback_candles
         self.n_std = n_std
+
+        # TODO: Respect CANDLE_UNIT.
+        if lookback_candles > BACKTESTING_MAX_LOOKBACK_DAYS * 6 * 0.5:
+            raise ValueError(
+                f"This strategy relies on too many lookback candles ({lookback_candles}) for meaningful evaluation to be done. "
+                f"Maximum lookback is {BACKTESTING_MAX_LOOKBACK_DAYS} days."
+            )
 
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """Generate a historical score array for a symbol based on market data.
@@ -33,8 +41,8 @@ class BollingerBand(BaseStrategy):
 
         data_sorted = data.sort_values("datetime").copy()
 
-        ma = data_sorted["Close"].rolling(self.window).mean()
-        std = data_sorted["Close"].rolling(self.window).std()
+        ma = data_sorted["Close"].rolling(self.lookback_candles).mean()
+        std = data_sorted["Close"].rolling(self.lookback_candles).std()
 
         upper = ma + self.n_std * std
         lower = ma - self.n_std * std

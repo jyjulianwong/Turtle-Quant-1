@@ -3,19 +3,27 @@
 import pandas as pd
 
 from turtle_quant_1.strategies.base import BaseStrategy
+from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS
 
 
 class RelativeStrengthIndex(BaseStrategy):
     """A strategy that uses the RSI to generate buy and sell signals."""
 
-    def __init__(self, candles: int = 60):
+    def __init__(self, lookback_candles: int = 60):
         """Initialize the RSI strategy.
 
         Args:
-            candles: The number of periods to use for the RSI.
+            lookback_candles: The number of periods to use for the RSI.
         """
         super().__init__()
-        self.candles = candles
+        self.lookback_candles = lookback_candles
+
+        # TODO: Respect CANDLE_UNIT.
+        if lookback_candles > BACKTESTING_MAX_LOOKBACK_DAYS * 6 * 0.5:
+            raise ValueError(
+                f"This strategy relies on too many lookback candles ({lookback_candles}) for meaningful evaluation to be done. "
+                f"Maximum lookback is {BACKTESTING_MAX_LOOKBACK_DAYS} days."
+            )
 
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """Generate a historical score array for a symbol based on market data.
@@ -35,10 +43,10 @@ class RelativeStrengthIndex(BaseStrategy):
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
 
-        avg_gain = gain.rolling(self.candles).mean()
-        avg_loss = loss.rolling(self.candles).mean()
+        mean_gain = gain.rolling(self.lookback_candles).mean()
+        mean_loss = loss.rolling(self.lookback_candles).mean()
 
-        rs = avg_gain / (avg_loss + 1e-9)  # Prevent division by zero
+        rs = mean_gain / (mean_loss + 1e-9)  # Prevent division by zero
         rsi = 100 - (100 / (1 + rs))  # The standard RSI formula
 
         return pd.Series(

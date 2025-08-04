@@ -26,16 +26,15 @@ def get_config(trial: optuna.Trial) -> Dict[str, Any]:
     # TODO: Add a way to exclude strategies.
     strategies = {
         "BollingerBand": {
-            "window": trial.suggest_int("bb_window", 20, 200),
+            "lookback_candles": trial.suggest_int("bb_lookback_candles", 20, 200),
             "n_std": trial.suggest_int("bb_n_std", 1, 3),
         },
         "MovingAverageCrossover": {
             "sma_candles": trial.suggest_int("mac_sma_candles", 5, 50),
             "lma_candles": trial.suggest_int("mac_lma_candles", 5, 50),
         },
-        "RelativeStrengthIndex": {"candles": trial.suggest_int("rsi_candles", 14, 200)},
-        "LinearRegression": {
-            "lookback_candles": trial.suggest_int("lr_lookback_candles", 20, 200)
+        "RelativeStrengthIndex": {
+            "lookback_candles": trial.suggest_int("rsi_lookback_candles", 14, 200)
         },
     }
 

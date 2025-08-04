@@ -13,7 +13,6 @@ from turtle_quant_1.backtesting.runner import (
 )
 from turtle_quant_1.strategies.engine import StrategyEngine
 from turtle_quant_1.strategies.momentum import (
-    LinearRegression,
     MovingAverageCrossover,
     RelativeStrengthIndex,
 )
@@ -27,7 +26,6 @@ def create_test_cases() -> List[BacktestingTestCase]:
     """Create predefined test cases for backtesting."""
     test_cases = []
 
-    linear_regression = LinearRegression()
     moving_average_crossover = MovingAverageCrossover()
     relative_strength_index = RelativeStrengthIndex()
     bollinger_band = BollingerBand()
@@ -35,7 +33,6 @@ def create_test_cases() -> List[BacktestingTestCase]:
     # Test Case 1: Zero capital test
     strategy_engine_aggressive = StrategyEngine(
         strategies=[
-            linear_regression,
             moving_average_crossover,
             relative_strength_index,
             bollinger_band,
@@ -59,7 +56,6 @@ def create_test_cases() -> List[BacktestingTestCase]:
     # Test Case 2: Standard backtesting with moderate capital
     strategy_engine = StrategyEngine(
         strategies=[
-            linear_regression,
             moving_average_crossover,
             relative_strength_index,
             bollinger_band,
