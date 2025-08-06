@@ -11,7 +11,7 @@ import weakref
 
 import pandas as pd
 
-from turtle_quant_1.strategies import mean_reversion, momentum
+from turtle_quant_1.strategies import mean_reversion, momentum, candlesticks
 from turtle_quant_1.strategies.base import (
     BaseStrategy,
     BaseStrategyEngine,
@@ -99,7 +99,7 @@ class StrategyEngine(BaseStrategyEngine):
         strategy_classes = {}
 
         # List of modules to search in
-        strategy_modules = [mean_reversion, momentum]
+        strategy_modules = [candlesticks, mean_reversion, momentum]
 
         for package in strategy_modules:
             # Walk through all modules in the package

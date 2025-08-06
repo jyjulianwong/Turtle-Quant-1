@@ -24,6 +24,7 @@ def get_config(trial: optuna.Trial) -> Dict[str, Any]:
 
     # NOTE: All strategies are included by default.
     # TODO: Add a way to exclude strategies.
+    # TODO: Clean up.
     strategies = {
         "BollingerBand": {
             "lookback_candles": trial.suggest_int("bb_lookback_candles", 20, 200),
@@ -31,11 +32,22 @@ def get_config(trial: optuna.Trial) -> Dict[str, Any]:
         },
         "MovingAverageCrossover": {
             "sma_candles": trial.suggest_int("mac_sma_candles", 5, 50),
-            "lma_candles": trial.suggest_int("mac_lma_candles", 5, 50),
+            "lma_candles": trial.suggest_int("mac_lma_candles", 100, 200),
         },
         "RelativeStrengthIndex": {
             "lookback_candles": trial.suggest_int("rsi_lookback_candles", 14, 200)
         },
+        "RsiSupResDivergence": {
+            "lookback_candles": trial.suggest_int(
+                "rsi_sup_res_divergence_lookback_candles", 14, 200
+            ),
+            "local_extrema_window": trial.suggest_int(
+                "rsi_sup_res_divergence_local_extrema_window", 1, 10
+            ),
+        },
+        "EngulfingPattern": {},
+        "MultiplePattern": {},
+        "MomentumPattern": {},
     }
 
     # Strategy engine configuration
