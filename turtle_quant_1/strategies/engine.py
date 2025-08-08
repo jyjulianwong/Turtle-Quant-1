@@ -3,11 +3,13 @@
 import importlib
 import inspect
 import pkgutil
+import signal
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Any, Dict, List, Tuple, Type
 import atexit
 import threading
 import weakref
+import logging
 
 import pandas as pd
 
@@ -18,6 +20,9 @@ from turtle_quant_1.strategies.base import (
     Signal,
     SignalAction,
 )
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def _run_strategy_process(
@@ -60,6 +65,14 @@ class _ExecutorManager:
         # Register cleanup on process exit
         atexit.register(self._cleanup_all)
 
+        # Register signal handlers for graceful shutdown
+        try:
+            signal.signal(signal.SIGTERM, self._signal_handler)
+            signal.signal(signal.SIGINT, self._signal_handler)
+        except (ValueError, OSError) as e:
+            # Signal handling might not be available in all contexts (e.g., threads)
+            logger.error(f"Error registering signal handler: {e}")
+
     def create_executor(self, n_workers: int = 4) -> ProcessPoolExecutor:
         """Create a new ProcessPoolExecutor instance."""
         with self._lock:
@@ -67,16 +80,25 @@ class _ExecutorManager:
             self._executors.add(executor)
             return executor
 
+    def _signal_handler(self, signum, frame):
+        """Handle shutdown signals."""
+        self._cleanup_all()
+
     def _cleanup_all(self):
         """Cleanup all managed executors."""
-        with self._lock:
-            # Create a list to avoid modifying WeakSet during iteration
-            executors_to_cleanup = list(self._executors)
-            for executor in executors_to_cleanup:
-                try:
-                    executor.shutdown(wait=False)
-                except Exception:
-                    pass  # Ignore cleanup errors
+        try:
+            with self._lock:
+                # Create a list to avoid modifying WeakSet during iteration
+                executors_to_cleanup = list(self._executors)
+                for executor in executors_to_cleanup:
+                    try:
+                        # Force shutdown without waiting to avoid hanging during interpreter shutdown
+                        executor.shutdown(wait=False)
+                    except Exception as e:
+                        logger.error(f"Error shutting down executor: {e}")
+        except Exception as e:
+            # Ignore any errors during global cleanup
+            logger.error(f"Error during global cleanup: {e}")
 
 
 # Global executor manager
@@ -185,11 +207,27 @@ class StrategyEngine(BaseStrategyEngine):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit with cleanup."""
+        self._cleanup_executor()
+
+    def __del__(self):
+        """Destructor to ensure executor cleanup before garbage collection."""
+        try:
+            self._cleanup_executor()
+        except Exception as e:
+            # Suppress any errors during destruction to avoid issues during interpreter shutdown
+            logger.error(f"Error during destruction: {e}")
+
+    def _cleanup_executor(self):
+        """Clean up the executor instance."""
         if self._executor is not None:
             with self._executor_lock:
                 if self._executor is not None:
-                    self._executor.shutdown(wait=True)
-                    self._executor = None
+                    try:
+                        self._executor.shutdown(wait=False)  # Don't wait during cleanup
+                    except Exception as e:
+                        logger.error(f"Error shutting down executor: {e}")
+                    finally:
+                        self._executor = None
 
     def _get_executor(self) -> ProcessPoolExecutor:
         """Get or create the ProcessPoolExecutor for this instance."""
@@ -291,7 +329,9 @@ class StrategyEngine(BaseStrategyEngine):
                 total_score += weighted_score
             except Exception as e:
                 # Log the error but continue processing other strategies
-                print(f"Error processing strategy {future_to_strategy[future]}: {e}")
+                logger.error(
+                    f"Error processing strategy {future_to_strategy[future]}: {e}"
+                )
 
         # Store scores for use in other methods
         self._last_scores = strategy_scores

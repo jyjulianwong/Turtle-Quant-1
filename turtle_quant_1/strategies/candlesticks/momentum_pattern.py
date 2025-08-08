@@ -1,5 +1,3 @@
-from typing import List
-
 import pandas as pd
 import numpy as np
 
@@ -16,29 +14,53 @@ class MomentumPattern(BaseStrategy):
         ratio: pd.Series = flat_range / mean_price
         return ratio.iloc[-1] < flat_threshold
 
-    def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
-        scores: List[float] = []
-        for i in range(1, len(data)):
-            body: float = abs(float(data["Close"].iloc[i] - data["Open"].iloc[i]))
-            range_: float = float(data["High"].iloc[i] - data["Low"].iloc[i])
-            strong_body: bool = body / range_ > 0.7
-            if strong_body and self._is_sideways_market(data.iloc[:i]):
-                direction: float = float(
-                    np.sign(data["Close"].iloc[i] - data["Open"].iloc[i])
-                )
-                scores.append(direction)
-            else:
-                scores.append(0.0)
+    def _get_score_for_candle(self, data: pd.DataFrame, idx: int) -> float:
+        """Get a single score for the momentum pattern.
 
+        This checks if the last candle has a strong body and if the market is sideways.
+
+        Args:
+            data: The data to get the score for.
+            idx: The index of the current row.
+
+        Returns:
+            The score for the momentum pattern.
+        """
+        candle_body_range = abs(float(data["Close"].iloc[idx] - data["Open"].iloc[idx]))
+        candle_wick_range = float(data["High"].iloc[idx] - data["Low"].iloc[idx])
+        has_strong_body = candle_body_range / candle_wick_range > 0.7
+
+        if has_strong_body and self._is_sideways_market(data.iloc[:idx]):
+            return float(np.sign(data["Close"].iloc[idx] - data["Open"].iloc[idx]))
+
+        return 0.0
+
+    def _get_score(self, data: pd.DataFrame, idx: int) -> float:
+        """Uses _get_score_for_candle to get the maximum score for the last 6 candles.
+
+        Checks if this candlestick pattern has occurred in the last 6 timestamps.
+
+        Args:
+            data: The data to get the score for.
+            idx: The index of the current row.
+
+        Returns:
+            The score for the momentum pattern.
+        """
+        if idx - 6 < 0:
+            return 0.0  # Data out of range
+
+        recent_data = data.iloc[idx - 6 : idx]  # TODO: Respect CANDLE_UNIT.
+        scores = recent_data.apply(
+            lambda row: self._get_score_for_candle(data, row.name), axis=1
+        )
+        return scores.max()
+
+    def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
+        scores = data.apply(lambda row: self._get_score(data, row.name), axis=1)
         return pd.Series(
-            data=[0.0] + scores, index=pd.to_datetime(data["datetime"]), dtype=float
+            data=scores.values, index=pd.to_datetime(data["datetime"]), dtype=float
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
-        i = len(data) - 1
-        wick_body: float = abs(float(data["Close"].iloc[i] - data["Open"].iloc[i]))
-        wick_range: float = float(data["High"].iloc[i] - data["Low"].iloc[i])
-        strong_body: bool = wick_body / wick_range > 0.7
-        if strong_body and self._is_sideways_market(data):
-            return float(np.sign(data["Close"].iloc[i] - data["Open"].iloc[i]))
-        return 0.0
+        return float(self._get_score(data, len(data) - 1))

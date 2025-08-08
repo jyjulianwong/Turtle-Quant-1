@@ -1,6 +1,5 @@
 """Backtesting engine for strategy evaluation."""
 
-import threading
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
@@ -20,13 +19,20 @@ from turtle_quant_1.config import (
 )
 from turtle_quant_1.data_processing.processor import DataProcessor
 from turtle_quant_1.strategies.base import BaseStrategyEngine, SignalAction
+from turtle_quant_1.strategies.helpers.multiprocessing import ProcessSafeCache
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-GLOBAL_DATA_CACHE: dict[str, pd.DataFrame] = {}
-GLOBAL_DATA_CACHE_LOCK = threading.Lock()
+
+# Global data cache instance for backtesting
+_global_data_cache = ProcessSafeCache(cache_dir=None)
+
+
+def get_global_data_cache():
+    """Get the global data cache instance."""
+    return _global_data_cache
 
 
 class BacktestingEngine:
@@ -63,13 +69,18 @@ class BacktestingEngine:
         # Initialize data management components
         self.data_processor = DataProcessor(symbols=self.symbols)
         self.data_cache: dict[str, pd.DataFrame] = {}
+        cache = get_global_data_cache()
+
         for symbol in self.symbols:
-            with GLOBAL_DATA_CACHE_LOCK:
-                if symbol not in GLOBAL_DATA_CACHE:
-                    GLOBAL_DATA_CACHE[symbol] = self._load_data_for_symbol(
-                        symbol, impute_data=True
-                    )
-                self.data_cache[symbol] = GLOBAL_DATA_CACHE[symbol]
+            # Check if data exists in cache
+            cached_data = cache.get(symbol)
+            if cached_data is not None:
+                self.data_cache[symbol] = cached_data
+            else:
+                # Load and cache the data
+                data = self._load_data_for_symbol(symbol, impute_data=True)
+                cache.set(symbol, data)
+                self.data_cache[symbol] = data
 
         # For quantstats metrics
         self.portfolio_returns: List[Tuple[datetime, float]] = []

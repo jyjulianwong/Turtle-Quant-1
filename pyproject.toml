@@ -59,6 +59,10 @@ exclude = [
     "__pycache__",
     "*.ipynb"
 ]
+[tool.ruff.lint.pycodestyle]
+ignore-overlong-task-comments = true
+[tool.ruff.lint]
+task-tags = ["HACK"]
 
 [tool.pyrefly]
 # Set the directory Pyrefly will search for files to type check

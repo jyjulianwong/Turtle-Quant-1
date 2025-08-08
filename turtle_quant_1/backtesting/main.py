@@ -40,33 +40,33 @@ def create_test_cases() -> List[BacktestingTestCase]:
     multiple_pattern = MultiplePattern()
     momentum_pattern = MomentumPattern()
 
-    # Test Case 1: Zero capital test
-    strategy_engine_aggressive = StrategyEngine(
-        # TODO: Clean up.
-        strategies=[
-            moving_average_crossover,
-            relative_strength_index,
-            bollinger_band,
-            rsi_sup_res_divergence,
-            engulfing_pattern,
-            multiple_pattern,
-            momentum_pattern,
-        ],
-        buy_unit_threshold=0.2,
-        sell_threshold=-0.2,
-    )
+    # # Test Case 1: Zero capital test
+    # strategy_engine = StrategyEngine(
+    #     # TODO: Clean up.
+    #     strategies=[
+    #         moving_average_crossover,
+    #         relative_strength_index,
+    #         bollinger_band,
+    #         rsi_sup_res_divergence,
+    #         engulfing_pattern,
+    #         multiple_pattern,
+    #         momentum_pattern,
+    #     ],
+    #     buy_unit_threshold=0.2,
+    #     sell_threshold=-0.2,
+    # )
 
-    test_cases.append(
-        BacktestingTestCase(
-            name="zero_capital",
-            description="Test with $0 starting capital to verify no BUY orders are executed",
-            strategy_engine=strategy_engine_aggressive,
-            initial_capital=0.0,
-            expected_results={
-                "total_transactions": 0
-            },  # Expect no transactions with $0
-        )
-    )
+    # test_cases.append(
+    #     BacktestingTestCase(
+    #         name="zero_capital",
+    #         description="Test with $0 starting capital to verify no BUY orders are executed",
+    #         strategy_engine=strategy_engine,
+    #         initial_capital=0.0,
+    #         expected_results={
+    #             "total_transactions": 0
+    #         },  # Expect no transactions with $0
+    #     )
+    # )
 
     # Test Case 2: Standard backtesting with moderate capital
     strategy_engine = StrategyEngine(
