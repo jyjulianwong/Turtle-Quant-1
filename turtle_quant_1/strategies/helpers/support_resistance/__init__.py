@@ -1,13 +1,15 @@
 """Support and resistance strategies."""
 
 from .base import SupResIndicator
-from .fibonacci_retrace_static import FibonacciRetraceStatic
-from .local_extrema_static import LocalExtremaStatic
-from .pivot_point_static import PivotPointStatic
+from .stnry_fibonacci_retrace import StnryFibonacciRetrace
+from .stnry_gaussian_kde import StnryGaussianKDE
+from .stnry_local_extrema import StnryLocalExtrema
+from .stnry_pivot_point import StnryPivotPoint
 
 __all__ = [
     "SupResIndicator",
-    "FibonacciRetraceStatic",
-    "LocalExtremaStatic",
-    "PivotPointStatic",
+    "StnryFibonacciRetrace",
+    "StnryGaussianKDE",
+    "StnryLocalExtrema",
+    "StnryPivotPoint",
 ]

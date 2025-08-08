@@ -1,4 +1,4 @@
-"""Pivot point support and resistance strategy."""
+"""Stationary pivot point support and resistance strategy."""
 
 import pandas as pd
 
@@ -7,8 +7,8 @@ from turtle_quant_1.strategies.helpers.helpers import convert_to_weekly_data
 from .base import BaseSupResStrategy
 
 
-class PivotPointStatic(BaseSupResStrategy):
-    """Pivot point support and resistance strategy.
+class StnryPivotPoint(BaseSupResStrategy):
+    """Stationary pivot point support and resistance strategy.
 
     This strategy calculates monthly pivot points and their associated
     support (S1, S2) and resistance (R1, R2) levels based on the previous
@@ -23,7 +23,7 @@ class PivotPointStatic(BaseSupResStrategy):
     """
 
     def __init__(self):
-        """Initialize the PivotPointStatic strategy."""
+        """Initialize the StnryPivotPoint strategy."""
         super().__init__()
 
     def _get_monthly_dfs(self, data: pd.DataFrame) -> pd.api.typing.DataFrameGroupBy:

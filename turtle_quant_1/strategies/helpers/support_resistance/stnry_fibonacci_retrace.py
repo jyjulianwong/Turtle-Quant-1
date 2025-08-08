@@ -1,4 +1,4 @@
-"""Fibonacci retracement support and resistance strategy."""
+"""Stationary Fibonacci retracement support and resistance strategy."""
 
 from typing import List, Tuple
 
@@ -11,8 +11,8 @@ from turtle_quant_1.strategies.helpers.helpers import convert_to_weekly_data
 from .base import BaseSupResStrategy
 
 
-class FibonacciRetraceStatic(BaseSupResStrategy):
-    """Fibonacci retracement support and resistance strategy.
+class StnryFibonacciRetrace(BaseSupResStrategy):
+    """Stationary Fibonacci retracement support and resistance strategy.
 
     This strategy identifies support and resistance levels by calculating
     Fibonacci retracement levels between significant swing highs and lows
@@ -26,7 +26,7 @@ class FibonacciRetraceStatic(BaseSupResStrategy):
         peak_prominence_pct: float = 0.02,
         fib_levels: List[float] = [],
     ):
-        """Initialize the FibonacciRetraceStatic strategy.
+        """Initialize the StnryFibonacciRetrace strategy.
 
         Args:
             peak_distance: Minimum distance between peaks (in candlesticks).
@@ -91,7 +91,7 @@ class FibonacciRetraceStatic(BaseSupResStrategy):
         swings.sort(key=lambda x: x[0])
         return swings
 
-    def _calculate_fibonacci_levels(
+    def _calc_fibonacci_levels(
         self, high_price: float, low_price: float
     ) -> List[float]:
         """Calculate Fibonacci retracement levels between high and low.
@@ -145,10 +145,10 @@ class FibonacciRetraceStatic(BaseSupResStrategy):
         if not all(col in data.columns for col in required_cols):
             raise ValueError(f"Data must contain {required_cols} columns")
 
-        daily_data = convert_to_weekly_data(data)
+        weekly_data = convert_to_weekly_data(data)
 
         # Find all swing highs and lows for the entire dataset
-        all_swings = self._find_swing_highs_lows(daily_data)
+        all_swings = self._find_swing_highs_lows(weekly_data)
 
         if len(all_swings) < 2:
             # Need at least some swings to calculate Fibonacci levels
@@ -166,7 +166,7 @@ class FibonacciRetraceStatic(BaseSupResStrategy):
             lowest_swing = min(lows, key=lambda x: x[1])
 
             # Calculate Fibonacci levels between the absolute extremes
-            primary_fib_levels = self._calculate_fibonacci_levels(
+            primary_fib_levels = self._calc_fibonacci_levels(
                 highest_swing[1], lowest_swing[1]
             )
             all_levels.extend(primary_fib_levels)
@@ -179,7 +179,7 @@ class FibonacciRetraceStatic(BaseSupResStrategy):
             # Calculate Fibonacci levels between significant swing pairs
             for high_swing in significant_highs:
                 for low_swing in significant_lows:
-                    fib_levels = self._calculate_fibonacci_levels(
+                    fib_levels = self._calc_fibonacci_levels(
                         high_swing[1], low_swing[1]
                     )
                     all_levels.extend(fib_levels)
@@ -193,14 +193,14 @@ class FibonacciRetraceStatic(BaseSupResStrategy):
 
         # Create single row result covering the entire dataset duration
         start_date = (
-            daily_data.iloc[0]["datetime"]
-            if "datetime" in daily_data.columns
-            else daily_data.index[0]
+            weekly_data.iloc[0]["datetime"]
+            if "datetime" in weekly_data.columns
+            else weekly_data.index[0]
         )
         end_date = (
-            daily_data.iloc[-1]["datetime"]
-            if "datetime" in daily_data.columns
-            else daily_data.index[-1]
+            weekly_data.iloc[-1]["datetime"]
+            if "datetime" in weekly_data.columns
+            else weekly_data.index[-1]
         )
 
         result = pd.DataFrame(

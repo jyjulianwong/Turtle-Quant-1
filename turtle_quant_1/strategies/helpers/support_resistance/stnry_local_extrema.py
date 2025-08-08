@@ -1,4 +1,4 @@
-"""Local extrema static support and resistance strategy."""
+"""Stationary local extrema static support and resistance strategy."""
 
 import numpy as np
 import pandas as pd
@@ -9,8 +9,8 @@ from turtle_quant_1.strategies.helpers.helpers import convert_to_weekly_data
 from .base import BaseSupResStrategy
 
 
-class LocalExtremaStatic(BaseSupResStrategy):
-    """Local extrema static support and resistance strategy.
+class StnryLocalExtrema(BaseSupResStrategy):
+    """Stationary local extrema static support and resistance strategy.
 
     Refer to https://medium.com/@itay1542/how-to-calculate-support-and-resistance-levels-using-python-a-step-by-step-guide-e94a33c6cbda.
 
@@ -27,7 +27,7 @@ class LocalExtremaStatic(BaseSupResStrategy):
         peak_rank_width: float = 2.0,
         res_min_pivot_rank: int = 3,
     ):
-        """Initialize the LocalExtremaStatic strategy.
+        """Initialize the StnryLocalExtrema strategy.
 
         Args:
             strong_peak_distance: Distance between strong peaks (in days).
@@ -186,13 +186,13 @@ class LocalExtremaStatic(BaseSupResStrategy):
         if not all(col in data.columns for col in ["High", "Low"]):
             raise ValueError("Data must contain 'High' and 'Low' columns")
 
-        daily_data = convert_to_weekly_data(data)
+        weekly_data = convert_to_weekly_data(data)
 
         # Calculate resistance levels
-        resistances = self._calc_resistance_levels(daily_data)
+        resistances = self._calc_resistance_levels(weekly_data)
 
         # Calculate support levels using the same logic on inverted low prices
-        supports = self._calc_support_levels(daily_data)
+        supports = self._calc_support_levels(weekly_data)
 
         # Combine all levels
         all_levels = resistances + supports

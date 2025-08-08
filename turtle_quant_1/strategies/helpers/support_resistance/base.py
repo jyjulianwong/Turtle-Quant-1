@@ -32,20 +32,24 @@ class SupResIndicator:
         """
         if strategies is None:
             # Import here to avoid circular imports
-            from .fibonacci_retrace_static import (
-                FibonacciRetraceStatic,
+            from .stnry_fibonacci_retrace import (
+                StnryFibonacciRetrace,
             )
-            from .local_extrema_static import (
-                LocalExtremaStatic,
+            from .stnry_gaussian_kde import (
+                StnryGaussianKDE,
             )
-            from .pivot_point_static import (
-                PivotPointStatic,
+            from .stnry_local_extrema import (
+                StnryLocalExtrema,
+            )
+            from .stnry_pivot_point import (
+                StnryPivotPoint,
             )
 
             self.strategies = [
-                FibonacciRetraceStatic(),
-                LocalExtremaStatic(),
-                PivotPointStatic(),
+                StnryFibonacciRetrace(),
+                StnryGaussianKDE(),
+                StnryLocalExtrema(),
+                StnryPivotPoint(),
             ]  # pyrefly: ignore[bad-assignment]
         else:
             self.strategies = strategies  # pyrefly: ignore[bad-assignment]
