@@ -13,7 +13,9 @@ from .base import BaseSupResStrategy
 class StnryGaussianKDE(BaseSupResStrategy):
     """Stationary Gaussian KDE support and resistance strategy.
 
-    Refer to https://github.com/neurotrader888/TechnicalAnalysisAutomation/blob/main/mp_support_resist.py.
+    Refer to:
+    - https://github.com/neurotrader888/TechnicalAnalysisAutomation/blob/main/mp_support_resist.py
+    - https://www.youtube.com/watch?v=mNWPSFOVoYA
 
     This strategy identifies support and resistance levels by using Gaussian KDE to
     identify significant peaks in the market profile.
