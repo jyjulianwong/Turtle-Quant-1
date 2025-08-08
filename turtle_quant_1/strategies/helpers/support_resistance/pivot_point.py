@@ -1,8 +1,9 @@
 """Pivot point support and resistance strategy."""
 
 import pandas as pd
-from turtle_quant_1.strategies.helpers.support_resistance.base import BaseSupResStrategy
+
 from turtle_quant_1.strategies.helpers.helpers import convert_to_daily_data
+from turtle_quant_1.strategies.helpers.support_resistance.base import BaseSupResStrategy
 
 
 class PivotPoint(BaseSupResStrategy):
@@ -40,6 +41,7 @@ class PivotPoint(BaseSupResStrategy):
             data.set_index("datetime", inplace=True)
         else:
             data = data.copy()
+            # pyrefly: ignore
             data.index = pd.to_datetime(data.index)
 
         # Group by month to calculate monthly levels
@@ -100,7 +102,7 @@ class PivotPoint(BaseSupResStrategy):
 
         results = []
 
-        for month_end, month_data in monthly_groups:  # pyrefly: ignore[not-iterable]
+        for month_end, month_data in monthly_groups:
             if len(month_data) == 0:
                 continue
 

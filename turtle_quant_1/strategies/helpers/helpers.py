@@ -1,5 +1,6 @@
-import pandas as pd
 from typing import Literal
+
+import pandas as pd
 
 
 def get_wick_direction(row: pd.Series) -> Literal["up", "down", "neutral"]:
@@ -76,9 +77,8 @@ def convert_to_daily_data(data: pd.DataFrame) -> pd.DataFrame:
 
     # Preserve original indices by using the last index of each group
     # Get the last index for each date group (avoiding deprecated behavior)
-    last_indices = data.groupby(
-        "date", group_keys=False
-    ).apply(  # pyrefly: ignore[no-matching-overload]
+    # pyrefly: ignore
+    last_indices = data.groupby("date", group_keys=False).apply(
         lambda x: x.index[-1], include_groups=False
     )
     daily_df.index = last_indices.values

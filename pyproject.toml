@@ -62,6 +62,14 @@ exclude = [
 [tool.ruff.lint.pycodestyle]
 ignore-overlong-task-comments = true
 [tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+select = ["I"]
+ignore = []
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
 task-tags = ["HACK"]
 
 [tool.pyrefly]
