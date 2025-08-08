@@ -87,3 +87,70 @@ def convert_to_daily_data(data: pd.DataFrame) -> pd.DataFrame:
     daily_df = daily_df[["datetime", "Open", "High", "Low", "Close", "Volume"]]
 
     return daily_df
+
+
+def convert_to_weekly_data(data: pd.DataFrame) -> pd.DataFrame:
+    """Convert OHLC data to weekly data.
+
+    The weekly data will have the following columns:
+    - datetime: The date of the week.
+    - Open: The open price of the week.
+    - High: The high price of the week.
+    - Low: The low price of the week.
+    - Close: The close price of the week.
+    - Volume: The volume of the week.
+
+    The indices of the originalDataFrame will be retained,
+    i.e. the row number of a week will be the row number of the last timestamp of the week,
+    meaning the row numbers will not be contiguous.
+
+    Args:
+        data: The data to convert.
+
+    Returns:
+        The converted data.
+    """
+    if data.empty:
+        return pd.DataFrame(
+            columns=["datetime", "Open", "High", "Low", "Close", "Volume"]
+        )
+
+    # Ensure datetime column is datetime type
+    data = data.copy()
+    data["datetime"] = pd.to_datetime(data["datetime"])
+
+    # Create weekly grouping key using week ending (Friday as end of working week)
+    # Use Grouper to avoid timezone warnings when grouping by week
+    data = data.set_index("datetime")
+
+    # Group by week ending on Friday, preserving timezone info
+    weekly_groups = data.groupby(pd.Grouper(freq="W-FRI"))
+
+    # Use pandas vectorized aggregation - much more efficient than loops
+    weekly_df = weekly_groups.agg(
+        {
+            "Open": "first",  # First open of the week
+            "High": "max",  # Highest high of the week
+            "Low": "min",  # Lowest low of the week
+            "Close": "last",  # Last close of the week
+            "Volume": "sum",  # Total volume of the week
+        }
+    ).reset_index()
+
+    # Rename the datetime index back to datetime column
+    weekly_df = weekly_df.rename(columns={"datetime": "datetime"})
+
+    # Preserve original indices by using the last index of each group
+    # Get the last index for each week group (avoiding deprecated behavior)
+    # pyrefly: ignore
+    last_indices = weekly_groups.apply(lambda x: x.index[-1], include_groups=False)
+    weekly_df.index = last_indices.values
+
+    # Reorder columns to match expected format
+    weekly_df = weekly_df[["datetime", "Open", "High", "Low", "Close", "Volume"]]
+
+    return weekly_df
+
+
+def convert_to_yearly_data(data: pd.DataFrame) -> pd.DataFrame:
+    raise NotImplementedError()

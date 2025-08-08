@@ -1,9 +1,10 @@
 """Base class for support and resistance strategies."""
 
-from abc import ABC, abstractmethod
-import pandas as pd
-from typing import List, Optional
 import logging
+from abc import ABC, abstractmethod
+from typing import List, Optional
+
+import pandas as pd
 
 from turtle_quant_1.strategies.helpers.multiprocessing import ProcessSafeCache
 
@@ -31,16 +32,20 @@ class SupResIndicator:
         """
         if strategies is None:
             # Import here to avoid circular imports
-            from turtle_quant_1.strategies.helpers.support_resistance.local_extrema_static import (
+            from .fibonacci_retrace_static import (
+                FibonacciRetraceStatic,
+            )
+            from .local_extrema_static import (
                 LocalExtremaStatic,
             )
-            from turtle_quant_1.strategies.helpers.support_resistance.pivot_point import (
-                PivotPoint,
+            from .pivot_point_static import (
+                PivotPointStatic,
             )
 
             self.strategies = [
+                FibonacciRetraceStatic(),
                 LocalExtremaStatic(),
-                PivotPoint(),
+                PivotPointStatic(),
             ]  # pyrefly: ignore[bad-assignment]
         else:
             self.strategies = strategies  # pyrefly: ignore[bad-assignment]
@@ -136,7 +141,7 @@ class SupResIndicator:
         data: pd.DataFrame,
         idx: int,
         symbol: str,
-        threshold: float = 0.005,
+        threshold: float = 0.005,  # Within 1% of the level
         min_consensus: float = 0.5,
     ) -> bool:
         """Check if the current price is in a support or resistance zone.

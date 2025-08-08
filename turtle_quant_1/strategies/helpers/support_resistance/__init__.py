@@ -1,13 +1,13 @@
 """Support and resistance strategies."""
 
-from turtle_quant_1.strategies.helpers.support_resistance.base import SupResIndicator
-from turtle_quant_1.strategies.helpers.support_resistance.local_extrema_static import (
-    LocalExtremaStatic,
-)
-from turtle_quant_1.strategies.helpers.support_resistance.pivot_point import PivotPoint
+from .base import SupResIndicator
+from .fibonacci_retrace_static import FibonacciRetraceStatic
+from .local_extrema_static import LocalExtremaStatic
+from .pivot_point_static import PivotPointStatic
 
 __all__ = [
     "SupResIndicator",
+    "FibonacciRetraceStatic",
     "LocalExtremaStatic",
-    "PivotPoint",
+    "PivotPointStatic",
 ]

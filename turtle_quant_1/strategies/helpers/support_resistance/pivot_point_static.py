@@ -2,11 +2,12 @@
 
 import pandas as pd
 
-from turtle_quant_1.strategies.helpers.helpers import convert_to_daily_data
-from turtle_quant_1.strategies.helpers.support_resistance.base import BaseSupResStrategy
+from turtle_quant_1.strategies.helpers.helpers import convert_to_weekly_data
+
+from .base import BaseSupResStrategy
 
 
-class PivotPoint(BaseSupResStrategy):
+class PivotPointStatic(BaseSupResStrategy):
     """Pivot point support and resistance strategy.
 
     This strategy calculates monthly pivot points and their associated
@@ -22,7 +23,7 @@ class PivotPoint(BaseSupResStrategy):
     """
 
     def __init__(self):
-        """Initialize the PivotPoint strategy."""
+        """Initialize the PivotPointStatic strategy."""
         super().__init__()
 
     def _get_monthly_dfs(self, data: pd.DataFrame) -> pd.api.typing.DataFrameGroupBy:
@@ -96,7 +97,7 @@ class PivotPoint(BaseSupResStrategy):
         if not all(col in data.columns for col in required_cols):
             raise ValueError(f"Data must contain {required_cols} columns")
 
-        daily_data = convert_to_daily_data(data)
+        daily_data = convert_to_weekly_data(data)
         # Group by month to calculate monthly levels
         monthly_groups = self._get_monthly_dfs(daily_data)
 
