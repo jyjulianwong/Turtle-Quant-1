@@ -138,7 +138,7 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
         Returns:
             DataFrame with one row containing all Fibonacci retracement levels
             for the entire dataset duration.
-            The columns are: ['datetime_start', 'datetime_end', 'values'].
+            The columns are: ['datetime_beg', 'datetime_end', 'level_values'].
         """
         # Ensure we have the required columns
         required_cols = ["High", "Low"]
@@ -152,7 +152,9 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
 
         if len(all_swings) < 2:
             # Need at least some swings to calculate Fibonacci levels
-            return pd.DataFrame(columns=["datetime_start", "datetime_end", "values"])
+            return pd.DataFrame(
+                columns=["datetime_beg", "datetime_end", "level_values"]
+            )
 
         all_levels = []
 
@@ -185,7 +187,9 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
                     all_levels.extend(fib_levels)
 
         if not all_levels:
-            return pd.DataFrame(columns=["datetime_start", "datetime_end", "values"])
+            return pd.DataFrame(
+                columns=["datetime_beg", "datetime_end", "level_values"]
+            )
 
         # Remove duplicates and sort
         all_levels = list(set(all_levels))
@@ -205,9 +209,9 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
 
         result = pd.DataFrame(
             {
-                "datetime_start": [start_date],
+                "datetime_beg": [start_date],
                 "datetime_end": [end_date],
-                "values": [all_levels],
+                "level_values": [all_levels],
             }
         )
 

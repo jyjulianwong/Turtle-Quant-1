@@ -37,6 +37,9 @@ class StnryLocalExtrema(BaseSupResStrategy):
             res_min_pivot_rank: Minimum rank for resistance levels.
         """
         super().__init__()
+
+        self.threshold = 0.01  # Within 2% of the level
+
         self.strong_peak_distance = strong_peak_distance
         self.strong_peak_prominence_pct = strong_peak_prominence_pct
         self.peak_distance = peak_distance
@@ -201,7 +204,7 @@ class StnryLocalExtrema(BaseSupResStrategy):
         # Create output DataFrame - single row since these are static levels
         result = pd.DataFrame(
             {
-                "datetime_start": [
+                "datetime_beg": [
                     data["datetime"].iloc[0]
                     if "datetime" in data.columns
                     else data.index[0]
@@ -211,7 +214,7 @@ class StnryLocalExtrema(BaseSupResStrategy):
                     if "datetime" in data.columns
                     else data.index[-1]
                 ],
-                "values": [all_levels],
+                "level_values": [all_levels],
             }
         )
 

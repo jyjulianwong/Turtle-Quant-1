@@ -28,7 +28,7 @@ class SupResIndicator:
 
         Args:
             strategies: List of support/resistance strategies to use for consensus.
-                       If None, will use default strategies.
+                If None, will use default strategies.
         """
         if strategies is None:
             # Import here to avoid circular imports
@@ -89,15 +89,15 @@ class SupResIndicator:
         relevant_levels = []
 
         for _, row in levels_df.iterrows():
-            start_time = pd.to_datetime(row["datetime_start"])
+            start_time = pd.to_datetime(row["datetime_beg"])
             end_time = pd.to_datetime(row["datetime_end"])
 
             # Check if current time falls within the level's validity period
             if start_time <= current_time <= end_time:
-                if isinstance(row["values"], list):
-                    relevant_levels.extend(row["values"])
+                if isinstance(row["level_values"], list):
+                    relevant_levels.extend(row["level_values"])
                 else:
-                    relevant_levels.append(row["values"])
+                    relevant_levels.append(row["level_values"])
 
         if not relevant_levels:
             return False
@@ -145,7 +145,6 @@ class SupResIndicator:
         data: pd.DataFrame,
         idx: int,
         symbol: str,
-        threshold: float = 0.005,  # Within 1% of the level
         min_consensus: float = 0.5,
     ) -> bool:
         """Check if the current price is in a support or resistance zone.
@@ -154,7 +153,6 @@ class SupResIndicator:
             data: The data to check, must contain 'High', 'Low', 'Close' columns.
             idx: The index of the current price to check.
             symbol: The symbol being analyzed.
-            threshold: The threshold for determining if price is near a support/resistance level.
             min_consensus: Minimum fraction of strategies that must agree (0.0 to 1.0).
 
         Returns:
@@ -192,7 +190,7 @@ class SupResIndicator:
 
                 # Check if current price is near any support/resistance levels
                 if self._is_price_near_levels(
-                    historical_data, idx, current_price, levels_df, threshold
+                    historical_data, idx, current_price, levels_df, strategy.threshold
                 ):
                     strategies_agree += 1
 
@@ -213,7 +211,8 @@ class BaseSupResStrategy(ABC):
 
     def __init__(self):
         """Initialize the strategy."""
-        pass
+        # The threshold for determining if price is near a support/resistance level
+        self.threshold = 0.005  # Within 1% of the level
 
     @abstractmethod
     def generate_historical_levels(
@@ -228,8 +227,8 @@ class BaseSupResStrategy(ABC):
 
         Returns:
             DataFrame with timestamps as index and lists of support and resistance levels as columns.
-            The columns are: ['datetime_start', 'datetime_end', 'values'].
-            The 'values' column is a list of support and resistance levels of type list[float].
+            The columns are: ['datetime_beg', 'datetime_end', 'level_values'].
+            The 'level_values' column is a list of support and resistance levels of type list[float].
         """
         raise NotImplementedError()
 
@@ -245,8 +244,8 @@ class BaseSupResStrategy(ABC):
 
         Returns:
             DataFrame with timestamps as index and lists of support and resistance levels as columns.
-            The columns are: ['datetime_start', 'datetime_end', 'values'].
-            The 'values' column is a list of support and resistance levels of type list[float].
+            The columns are: ['datetime_beg', 'datetime_end', 'level_values'].
+            The 'level_values' column is a list of support and resistance levels of type list[float].
         """
         # TODO: Not being used.
         return self.generate_historical_levels(data, symbol).iloc[[-1]]

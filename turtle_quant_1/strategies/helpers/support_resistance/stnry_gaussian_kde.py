@@ -5,8 +5,6 @@ import pandas as pd
 from scipy import signal as scipy_signal
 from scipy import stats as scipy_stats
 
-from turtle_quant_1.strategies.helpers.helpers import convert_to_daily_data
-
 from .base import BaseSupResStrategy
 
 
@@ -102,19 +100,19 @@ class StnryGaussianKDE(BaseSupResStrategy):
         max_v = np.max(price)
         step = (max_v - min_v) / 200
         price_range = np.arange(min_v, max_v, step).astype(float)
-        pdf = kernal(price_range)  # Market profile
+        price_pdf = kernal(price_range)  # Market profile
 
         # Find significant peaks in the market profile
-        pdf_max = np.max(pdf)
-        prom_min = pdf_max * prom_thresh
+        price_pdf_max = np.max(price_pdf)
+        prom_min = price_pdf_max * prom_thresh
 
         # pyrefly: ignore
-        peaks, props = scipy_signal.find_peaks(pdf, prominence=prom_min)
+        peaks, props = scipy_signal.find_peaks(price_pdf, prominence=prom_min)
         levels = []
         for peak in peaks:
             levels.append(np.exp(price_range[peak]))
 
-        return levels, peaks, props, price_range, pdf, weights
+        return levels, peaks, props, price_range, price_pdf, weights
 
     def _calc_sup_res_levels(
         self,
@@ -125,7 +123,7 @@ class StnryGaussianKDE(BaseSupResStrategy):
         prom_thresh: float = 0.25,
     ):
         vals = np.log(data["Close"].to_numpy())
-        levels, peaks, props, price_range, pdf, weights = self._calc_kdf_values(
+        levels, peaks, props, price_range, price_pdf, weights = self._calc_kdf_values(
             vals, atr, first_w, atr_mult, prom_thresh
         )
         return levels
@@ -143,18 +141,16 @@ class StnryGaussianKDE(BaseSupResStrategy):
         Returns:
             DataFrame with one row containing all Fibonacci retracement levels
             for the entire dataset duration.
-            The columns are: ['datetime_start', 'datetime_end', 'values'].
+            The columns are: ['datetime_beg', 'datetime_end', 'level_values'].
         """
-        daily_data = convert_to_daily_data(data)
-
         # Get log average true range
-        atr = self._calc_log_atr(daily_data)
-        level_values = self._calc_sup_res_levels(daily_data, atr)
+        atr = self._calc_log_atr(data)
+        level_values = self._calc_sup_res_levels(data, atr)
 
         # Create output DataFrame - single row since these are static levels
         result = pd.DataFrame(
             {
-                "datetime_start": [
+                "datetime_beg": [
                     data["datetime"].iloc[0]
                     if "datetime" in data.columns
                     else data.index[0]
@@ -164,7 +160,7 @@ class StnryGaussianKDE(BaseSupResStrategy):
                     if "datetime" in data.columns
                     else data.index[-1]
                 ],
-                "values": [level_values],
+                "level_values": [level_values],
             }
         )
 
