@@ -4,7 +4,17 @@
 
 ## Tech stack
 
-[![My Skills](https://skillicons.dev/icons?i=docker,gcp,githubactions,py,terraform)](https://skillicons.dev)
+[![My Skills](https://skillicons.dev/icons?i=docker,gcp,githubactions,py,sklearn,terraform)](https://skillicons.dev)
+
+## TL;DR — What's so cool about this repo anyways?
+
+- **Technical indicators**: A widely varied collection of modular hand-selected momentum and candlestick pattern indicators that provide early detection of changes in the direction of price trends
+- **Support / resistance indicators**: A varied set of support and resistance calculation algorithms that offer high accuracy and confidence through a fair voting mechanism, helping identify potential trading opportunities for other indicator-based strategies
+- **Parallelisation**: Efficient use of Python's multiprocessing and multithreading libraries to run strategy calculations in parallel, increasing throughput
+- **Memoization**: Efficient caching of computationally-expensive indicator calculations using thread-safe file-based caches to speed up backtesting and live predictions
+- **Cloud orchestration**: Use of Google Cloud Run Jobs that execute long-running tasks in parallel for better throughput and responsiveness
+- **DevOps**: A one-click push-to-main CI/CD pipeline trigger that builds and deploys Docker images and Cloud Run Jobs as part of an efficient DevOps setup using GitHub Actions and Terraform
+- **Software design**: Loosely-coupled and cohesive classes that: 1. adhere to object-oriented programming and software design best practices, 2. offer simple plug-and-play multi-vendor support (e.g. Yahoo Finance, Alpha Vantage)
 
 ## Get started with development
 

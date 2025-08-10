@@ -154,6 +154,8 @@ class StnryGaussianKDE(BaseSupResStrategy):
             levels, peaks, props, price_range, price_pdf, weights = (
                 self._calc_kdf_values(vals, atr, first_w, atr_mult, prom_thresh)
             )
+            # Round values to reduce number of unique values
+            # This is needed for the MultiLabelBinarizer to work later on
             level_values[i] = self._round_to_sig_fig(levels, 4)
 
         return level_values
