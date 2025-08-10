@@ -38,7 +38,7 @@ class StnryLocalExtrema(BaseSupResStrategy):
         """
         super().__init__()
 
-        self.threshold = 0.01  # Within 2% of the level
+        self.sup_res_zone_threshold = 0.01  # Within 2% of the level
 
         self.strong_peak_distance = strong_peak_distance
         self.strong_peak_prominence_pct = strong_peak_prominence_pct

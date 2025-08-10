@@ -190,7 +190,11 @@ class SupResIndicator:
 
                 # Check if current price is near any support/resistance levels
                 if self._is_price_near_levels(
-                    historical_data, idx, current_price, levels_df, strategy.threshold
+                    historical_data,
+                    idx,
+                    current_price,
+                    levels_df,
+                    strategy.sup_res_zone_threshold,
                 ):
                     strategies_agree += 1
 
@@ -212,7 +216,7 @@ class BaseSupResStrategy(ABC):
     def __init__(self):
         """Initialize the strategy."""
         # The threshold for determining if price is near a support/resistance level
-        self.threshold = 0.005  # Within 1% of the level
+        self.sup_res_zone_threshold = 0.005  # Within 1% of the level
 
     @abstractmethod
     def generate_historical_levels(

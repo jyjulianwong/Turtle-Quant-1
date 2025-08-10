@@ -8,8 +8,8 @@ import pandas as pd
 import pytz
 import quantstats as qs
 
+from turtle_quant_1.backtesting.models import PortfolioSummary, TestCaseResults
 from turtle_quant_1.backtesting.portfolio import Portfolio
-from turtle_quant_1.backtesting.models import TestCaseResults, PortfolioSummary
 from turtle_quant_1.config import (
     BACKTESTING_MAX_LOOKBACK_DAYS,
     BACKTESTING_MAX_LOOKFORWARD_DAYS,
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 # Global data cache instance for backtesting
-_global_data_cache = ProcessSafeCache(cache_dir=None)
+_global_data_cache = ProcessSafeCache()
 
 
 def get_global_data_cache():

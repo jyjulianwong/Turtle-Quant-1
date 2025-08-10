@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy import signal as scipy_signal
 from scipy import stats as scipy_stats
+from sklearn.preprocessing import MultiLabelBinarizer
 
 from .base import BaseSupResStrategy
 
@@ -22,6 +23,13 @@ class StnryGaussianKDE(BaseSupResStrategy):
     def __init__(self):
         """Initialize the StnryGaussianKDE strategy."""
         super().__init__()
+
+    def _round_to_sig_fig(self, x, p):
+        """Round a list of numbers to a specified number of significant figures."""
+        x = np.asarray(x)
+        x_positive = np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1))
+        mags = 10 ** (p - 1 - np.floor(np.log10(x_positive)))
+        return np.round(x * mags) / mags
 
     def _calc_log_atr(
         self, df: pd.DataFrame, period: int = 14, ema: bool = False
@@ -117,21 +125,65 @@ class StnryGaussianKDE(BaseSupResStrategy):
     def _calc_sup_res_levels(
         self,
         data: pd.DataFrame,
-        atr: float,
+        lookback: int = 360,  # TODO: Respect CANDLE_UNIT.
         first_w: float = 0.01,
         atr_mult: float = 3.00,
         prom_thresh: float = 0.25,
     ):
-        vals = np.log(data["Close"].to_numpy())
-        levels, peaks, props, price_range, price_pdf, weights = self._calc_kdf_values(
-            vals, atr, first_w, atr_mult, prom_thresh
-        )
-        return levels
+        """
+        Calculate the support and resistance levels for a given DataFrame.
+
+        Args:
+            data: DataFrame with OHLCV data containing columns:
+                  ['datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
+            lookback: Lookback period for the ATR calculation.
+            first_w: First weight for the Gaussian KDE.
+            atr_mult: Multiplier for the ATR.
+            prom_thresh: Prominence threshold for the Gaussian KDE.
+
+        Returns:
+            List of support and resistance levels for each timestamp in the dataset.
+        """
+        # Get log average true range
+        atr = self._calc_log_atr(data)
+
+        level_values = [[]] * len(data)
+        for i in range(lookback, len(data)):
+            i_start = i - lookback
+            vals = np.log(data.iloc[i_start + 1 : i + 1]["Close"].to_numpy())
+            levels, peaks, props, price_range, price_pdf, weights = (
+                self._calc_kdf_values(vals, atr, first_w, atr_mult, prom_thresh)
+            )
+            level_values[i] = self._round_to_sig_fig(levels, 4)
+
+        return level_values
 
     def generate_historical_levels(
         self, data: pd.DataFrame, symbol: str
     ) -> pd.DataFrame:
         """Generate Gaussian KDE levels for the entire dataset duration.
+
+        The method intermediately transforms the output from _calc_sup_res_levels() to the following format:
+        ```
+             datetime_beg              datetime_end                   316.0  318.3  318.4  318.5  ...
+        0    2023-08-31 09:30:00-04:00 2023-08-31 10:30:00-04:00      0      0      0      0      ...
+        1    2023-08-31 10:30:00-04:00 2023-08-31 11:30:00-04:00      0      0      0      0      ...
+        2    2023-08-31 11:30:00-04:00 2023-08-31 12:30:00-04:00      0      0      0      0      ...
+        3    2023-08-31 12:30:00-04:00 2023-08-31 13:30:00-04:00      0      0      0      0      ...
+        4    2023-08-31 13:30:00-04:00 2023-08-31 14:30:00-04:00      0      0      0      0      ...
+             ...                       ...                            ...    ...    ...    ...    ...
+        ```
+
+        It then transforms it back to the expected format:
+        ```
+            datetime_beg               datetime_end                level_values
+        0   2023-09-05 10:30:00-04:00  2023-09-08 14:30:00-04:00   [316.0]
+        1   2023-09-12 09:30:00-04:00  2023-09-15 15:30:00-04:00   [318.3]
+            ...                        ...                         ...
+        ```
+
+        This reduces the number of rows in the DataFrame,
+        and increases the continuous duration of each level value when visualized.
 
         Args:
             data: DataFrame with OHLCV data containing columns:
@@ -143,25 +195,48 @@ class StnryGaussianKDE(BaseSupResStrategy):
             for the entire dataset duration.
             The columns are: ['datetime_beg', 'datetime_end', 'level_values'].
         """
-        # Get log average true range
-        atr = self._calc_log_atr(data)
-        level_values = self._calc_sup_res_levels(data, atr)
+        level_values = self._calc_sup_res_levels(data)
 
         # Create output DataFrame - single row since these are static levels
         result = pd.DataFrame(
             {
-                "datetime_beg": [
-                    data["datetime"].iloc[0]
-                    if "datetime" in data.columns
-                    else data.index[0]
-                ],
-                "datetime_end": [
-                    data["datetime"].iloc[-1]
-                    if "datetime" in data.columns
-                    else data.index[-1]
-                ],
-                "level_values": [level_values],
+                "datetime_beg": pd.to_datetime(data.iloc[:-1]["datetime"]).reset_index(
+                    drop=True
+                ),
+                "datetime_end": pd.to_datetime(data.iloc[+1:]["datetime"]).reset_index(
+                    drop=True
+                ),
+                "level_values": level_values[1:],
             }
         )
+
+        mlb = MultiLabelBinarizer(sparse_output=True)
+
+        result = result.join(
+            # pyrefly: ignore
+            pd.DataFrame.sparse.from_spmatrix(
+                mlb.fit_transform(result.pop("level_values")),
+                index=result.index,
+                columns=mlb.classes_,
+            )
+        )
+
+        numeric_cols = result.select_dtypes(include="number").columns
+
+        result_rows = []
+        for col in numeric_cols:
+            nonzero_mask = result[col] != 0
+            if nonzero_mask.any():
+                min_dt = result.loc[nonzero_mask, "datetime_beg"].min()
+                max_dt = result.loc[nonzero_mask, "datetime_end"].max()
+                result_rows.append(
+                    {
+                        "datetime_beg": min_dt,
+                        "datetime_end": max_dt,
+                        "level_values": [col],
+                    }
+                )
+
+        result = pd.DataFrame(result_rows)
 
         return result

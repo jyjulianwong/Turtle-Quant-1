@@ -26,7 +26,7 @@ class StnryPivotPoint(BaseSupResStrategy):
         """Initialize the StnryPivotPoint strategy."""
         super().__init__()
 
-        self.threshold = 0.01  # Within 2% of the level
+        self.sup_res_zone_threshold = 0.01  # Within 2% of the level
 
     def _get_quarterly_dfs(self, data: pd.DataFrame) -> pd.api.typing.DataFrameGroupBy:
         """Get the quarterly data for a given DataFrame.
