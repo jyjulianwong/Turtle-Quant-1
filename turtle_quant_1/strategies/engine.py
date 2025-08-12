@@ -1,19 +1,20 @@
 """Strategy engine for aggregating multiple strategies and generating trading signals."""
 
+import atexit
 import importlib
 import inspect
+import logging
 import pkgutil
 import signal
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Any, Dict, List, Tuple, Type
-import atexit
 import threading
 import weakref
-import logging
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from typing import Any, Dict, List, Tuple, Type
 
 import pandas as pd
 
-from turtle_quant_1.strategies import mean_reversion, momentum, candlesticks
+from turtle_quant_1.config import MAX_WORKERS
+from turtle_quant_1.strategies import candlesticks, mean_reversion, momentum
 from turtle_quant_1.strategies.base import (
     BaseStrategy,
     BaseStrategyEngine,
@@ -73,7 +74,7 @@ class _ExecutorManager:
             # Signal handling might not be available in all contexts (e.g., threads)
             logger.error(f"Error registering signal handler: {e}")
 
-    def create_executor(self, n_workers: int = 4) -> ProcessPoolExecutor:
+    def create_executor(self, n_workers: int = MAX_WORKERS) -> ProcessPoolExecutor:
         """Create a new ProcessPoolExecutor instance."""
         with self._lock:
             executor = ProcessPoolExecutor(max_workers=n_workers)
@@ -173,7 +174,7 @@ class StrategyEngine(BaseStrategyEngine):
         weights: List[float] = [],
         buy_unit_threshold: float = 0.3,
         sell_threshold: float = -0.3,
-        n_workers: int = 4,
+        n_workers: int = MAX_WORKERS,
     ):
         """Initialize the strategy engine.
 
@@ -182,7 +183,7 @@ class StrategyEngine(BaseStrategyEngine):
             weights: Optional list of weights for each strategy. If None, equal weights are used.
             buy_unit_threshold: Minimum aggregated score to generate a BUY signal (default: 0.3).
             sell_threshold: Maximum aggregated score to generate a SELL signal (default: -0.3).
-            n_workers: Maximum number of worker processes for parallel execution (default: 4).
+            n_workers: Maximum number of worker processes for parallel execution (default: MAX_WORKERS).
         """
         super().__init__(strategies, weights, buy_unit_threshold, sell_threshold)
 
@@ -190,8 +191,16 @@ class StrategyEngine(BaseStrategyEngine):
         self._strategy_init_info = []
         for strategy in strategies:
             strategy_type = type(strategy)
-            # Extract initialization parameters from the strategy instance
-            strategy_params = strategy.__dict__.copy()
+
+            # Get __init__ parameter names (excluding 'self')
+            init_sig = inspect.signature(strategy.__init__)
+            param_names = [p for p in init_sig.parameters if p != "self"]
+
+            # Extract only those parameters from the instance
+            strategy_params = {
+                name: getattr(strategy, name, None) for name in param_names
+            }
+
             self._strategy_init_info.append((strategy_type, strategy_params))
 
         self._last_scores = {}
@@ -200,6 +209,13 @@ class StrategyEngine(BaseStrategyEngine):
         self._n_workers = n_workers
         self._executor = None
         self._executor_lock = threading.Lock()
+
+        if self._n_workers == 0:
+            logger.info("Running strategies sequentially...")
+        else:
+            logger.info(
+                f"Running strategies in parallel with {self._n_workers} workers..."
+            )
 
     def __enter__(self):
         """Context manager entry."""
@@ -303,35 +319,45 @@ class StrategyEngine(BaseStrategyEngine):
         total_score = 0.0
         strategy_scores = {}
 
-        # Get the executor for this instance
-        executor = self._get_executor()
-
-        # Submit tasks to the process pool
-        future_to_strategy = {}
-        for (strategy_type, strategy_params), weight in zip(
-            self._strategy_init_info, self.weights
-        ):
-            future = executor.submit(
-                _run_strategy_process,
-                strategy_type,
-                strategy_params,
-                weight,
-                data,
-                symbol,
-            )
-            future_to_strategy[future] = strategy_type.__name__
-
-        # Process completed tasks
-        for future in as_completed(future_to_strategy):
-            try:
-                strategy_name, score, weighted_score = future.result()
+        if self._n_workers == 0:
+            for (strategy_type, strategy_params), weight in zip(
+                self._strategy_init_info, self.weights
+            ):
+                strategy_name, score, weighted_score = _run_strategy_process(
+                    strategy_type, strategy_params, weight, data, symbol
+                )
                 strategy_scores[strategy_name] = score
                 total_score += weighted_score
-            except Exception as e:
-                # Log the error but continue processing other strategies
-                logger.error(
-                    f"Error processing strategy {future_to_strategy[future]}: {e}"
+        else:
+            # Get the executor for this instance
+            executor = self._get_executor()
+
+            # Submit tasks to the process pool
+            future_to_strategy = {}
+            for (strategy_type, strategy_params), weight in zip(
+                self._strategy_init_info, self.weights
+            ):
+                future = executor.submit(
+                    _run_strategy_process,
+                    strategy_type,
+                    strategy_params,
+                    weight,
+                    data,
+                    symbol,
                 )
+                future_to_strategy[future] = strategy_type.__name__
+
+            # Process completed tasks
+            for future in as_completed(future_to_strategy):
+                try:
+                    strategy_name, score, weighted_score = future.result()
+                    strategy_scores[strategy_name] = score
+                    total_score += weighted_score
+                except Exception as e:
+                    # Log the error but continue processing other strategies
+                    logger.error(
+                        f"Error processing strategy {future_to_strategy[future]}: {e}"
+                    )
 
         # Store scores for use in other methods
         self._last_scores = strategy_scores

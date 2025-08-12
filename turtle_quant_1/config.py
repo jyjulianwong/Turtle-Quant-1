@@ -37,6 +37,10 @@ if not GCLOUD_STB_DATA_NAME:
 PROJECT_ROOT = Path(__file__).parent.parent
 PACKAGE_ROOT = Path(__file__).parent
 
+# Performance
+# The maximum number of workers to use for parallel processing
+MAX_WORKERS = int(os.getenv("TURTLEQUANT1_MAX_WORKERS", 0))
+
 # Constants
 # The base unit for each data point
 CANDLE_UNIT = "HOUR"

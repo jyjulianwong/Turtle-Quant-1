@@ -1,11 +1,19 @@
 import pandas as pd
 
 from turtle_quant_1.strategies.base import BaseStrategy
-from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
 from turtle_quant_1.strategies.helpers.helpers import get_wick_direction
+from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
 
 
 class MultiplePattern(BaseStrategy):
+    """Multiple pattern strategy."""
+
+    def __init__(self):
+        """Initialize the MultiplePattern strategy."""
+        super().__init__()
+
+        self.sup_res_indicator = SupResIndicator()
+
     def _get_score_for_candle(self, data: pd.DataFrame, idx: int, symbol: str) -> float:
         """Get a single score for the multiple pattern.
 
@@ -23,11 +31,11 @@ class MultiplePattern(BaseStrategy):
             get_wick_direction(row) for _, row in data.iloc[idx - 3 : idx].iterrows()
         ]
 
-        if wick_dirs.count("down") >= 3 and SupResIndicator().is_sup_res_zone(
+        if wick_dirs.count("down") >= 3 and self.sup_res_indicator.is_sup_res_zone(
             data, idx, symbol
         ):
             return +1.0  # bullish reversal
-        elif wick_dirs.count("up") >= 3 and SupResIndicator().is_sup_res_zone(
+        elif wick_dirs.count("up") >= 3 and self.sup_res_indicator.is_sup_res_zone(
             data, idx, symbol
         ):
             return -1.0  # bearish reversal

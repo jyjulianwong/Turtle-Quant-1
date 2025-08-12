@@ -155,4 +155,4 @@ crash.log
 .cursorrules
 
 # Project specific
-
+*.prof

@@ -5,6 +5,14 @@ from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
 
 
 class EngulfingPattern(BaseStrategy):
+    """Engulfing pattern strategy."""
+
+    def __init__(self):
+        """Initialize the EngulfingPattern strategy."""
+        super().__init__()
+
+        self.sup_res_indicator = SupResIndicator()
+
     def _get_score_for_candle(self, data: pd.DataFrame, idx: int, symbol: str) -> float:
         """Get a single score for the engulfing pattern.
 
@@ -31,7 +39,9 @@ class EngulfingPattern(BaseStrategy):
             and curr["Close"] > prev["Open"]
         ):
             return (
-                +1.0 if SupResIndicator().is_sup_res_zone(data, idx, symbol) else 0.0
+                +1.0
+                if self.sup_res_indicator.is_sup_res_zone(data, idx, symbol)
+                else 0.0
             )  # Bullish
         if (
             prev["Close"] > prev["Open"]
@@ -40,7 +50,9 @@ class EngulfingPattern(BaseStrategy):
             and curr["Close"] < prev["Open"]
         ):
             return (
-                -1.0 if SupResIndicator().is_sup_res_zone(data, idx, symbol) else 0.0
+                -1.0
+                if self.sup_res_indicator.is_sup_res_zone(data, idx, symbol)
+                else 0.0
             )  # Bearish
         return 0.0
 

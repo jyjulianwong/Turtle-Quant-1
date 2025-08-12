@@ -23,14 +23,15 @@ def get_global_cache():
 class SupResIndicator:
     """Entrypoint for determining support and resistance zones for other strategies."""
 
-    def __init__(self, strategies: Optional[List["BaseSupResStrategy"]] = None):
+    def __init__(self, strategies: list["BaseSupResStrategy"] = []):
         """Initialize the SupResIndicator with a list of strategies.
 
         Args:
             strategies: List of support/resistance strategies to use for consensus.
                 If None, will use default strategies.
         """
-        if strategies is None:
+        if not strategies:
+            # Include all strategies by default
             # Import here to avoid circular imports
             from .stnry_fibonacci_retrace import (
                 StnryFibonacciRetrace,
