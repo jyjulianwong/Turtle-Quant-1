@@ -2,8 +2,9 @@
 
 import pandas as pd
 
+from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS, CANDLE_UNIT
 from turtle_quant_1.strategies.base import BaseStrategy
-from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS
+from turtle_quant_1.strategies.helpers.candle_units import convert_units
 
 
 class BollingerBand(BaseStrategy):
@@ -20,8 +21,10 @@ class BollingerBand(BaseStrategy):
         self.lookback_candles = lookback_candles
         self.n_std = n_std
 
-        # TODO: Respect CANDLE_UNIT.
-        if lookback_candles > BACKTESTING_MAX_LOOKBACK_DAYS * 6 * 0.5:
+        if (
+            lookback_candles
+            > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "DAY", CANDLE_UNIT) * 0.5
+        ):
             raise ValueError(
                 f"This strategy relies on too many lookback candles ({lookback_candles}) for meaningful evaluation to be done. "
                 f"Maximum lookback is {BACKTESTING_MAX_LOOKBACK_DAYS} days."

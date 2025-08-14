@@ -9,7 +9,7 @@ import pandas as pd
 from turtle_quant_1.backtesting.models import PortfolioTransaction
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -190,7 +190,7 @@ class Portfolio:
                         current_price,
                         datetime.now(),
                     )
-                    logger.debug(
+                    logger.warning(
                         f"Take profit triggered for {symbol} at {current_price:.2f}"
                     )
 
@@ -210,7 +210,7 @@ class Portfolio:
                         current_price,
                         datetime.now(),
                     )
-                    logger.debug(
+                    logger.warning(
                         f"Stop loss triggered for {symbol} at {current_price:.2f}"
                     )
 

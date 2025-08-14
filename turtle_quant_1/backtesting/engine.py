@@ -23,7 +23,7 @@ from turtle_quant_1.strategies.helpers.multiprocessing import ProcessSafeCache
 from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

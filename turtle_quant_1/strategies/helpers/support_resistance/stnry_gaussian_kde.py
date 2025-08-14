@@ -5,6 +5,8 @@ import pandas as pd
 from scipy import signal as scipy_signal
 from scipy import stats as scipy_stats
 
+from turtle_quant_1.config import CANDLE_UNIT
+from turtle_quant_1.strategies.helpers.candle_units import convert_units
 from turtle_quant_1.strategies.helpers.helpers import calc_atr_value, round_to_sig_fig
 
 from .base import BaseSupResStrategy
@@ -70,7 +72,7 @@ class StnryGaussianKde(BaseSupResStrategy):
     def _calc_sup_res_levels(
         self,
         data: pd.DataFrame,
-        lookback: int = 360,  # TODO: Respect CANDLE_UNIT.
+        lookback: int = convert_units(2, "MONTH", CANDLE_UNIT),
         first_w: float = 0.01,
         atr_mult: float = 3.00,
         prom_thresh: float = 0.25,
@@ -92,7 +94,11 @@ class StnryGaussianKde(BaseSupResStrategy):
             List of support and resistance levels for each timestamp in the dataset.
         """
         # Get log average true range
-        log_atr = calc_atr_value(data=data, return_log_space=True)
+        log_atr = calc_atr_value(
+            data=data,
+            lookback=lookback,
+            return_log_space=True,
+        )
 
         level_values = [np.full(128, 0.0) for _ in range(len(data))]
         # TODO: Vectorize.

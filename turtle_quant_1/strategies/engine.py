@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Tuple, Type
 
 import pandas as pd
 
-from turtle_quant_1.config import MAX_WORKERS
+from turtle_quant_1.config import CANDLE_UNIT, MAX_WORKERS
 from turtle_quant_1.strategies import candlesticks, mean_reversion, momentum
 from turtle_quant_1.strategies.base import (
     BaseStrategy,
@@ -21,6 +21,7 @@ from turtle_quant_1.strategies.base import (
     Signal,
     SignalAction,
 )
+from turtle_quant_1.strategies.helpers.candle_units import convert_units
 from turtle_quant_1.strategies.helpers.helpers import calc_atr_value
 
 logger = logging.getLogger(__name__)
@@ -371,8 +372,12 @@ class StrategyEngine(BaseStrategyEngine):
             symbol: The symbol being analyzed.
         """
         curr_price = data.iloc[-1]["Close"]
-        k = 2  # Multiplier
-        atr = calc_atr_value(data=data, return_log_space=False)
+        k = 3  # Multiplier
+        atr = calc_atr_value(
+            data=data,
+            lookback=convert_units(3, "MONTH", CANDLE_UNIT),
+            return_log_space=False,
+        )
         return curr_price - k * atr
 
     def generate_signal(self, data: pd.DataFrame, symbol: str) -> Signal:
