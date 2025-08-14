@@ -39,6 +39,10 @@ jobs:
   version:
     needs: test
     runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.psr.outputs.released }}
+      version: ${{ steps.psr.outputs.version }}
+      tag: ${{ steps.psr.outputs.tag }}
     permissions:
       contents: write
       packages: write
@@ -75,7 +79,7 @@ jobs:
     needs: version
     if: |
       github.ref == 'refs/heads/main' &&
-      steps.psr.outputs.released == 'true'
+      ${{ needs.version.outputs.released }} == 'true'
     environment: google-cloud
     runs-on: ubuntu-latest
     outputs:
@@ -100,7 +104,7 @@ jobs:
 
       - name: 🏗️ Build Docker image
         run: |
-          IMAGE_TAG="${{ vars.TURTLEQUANT1_GCLOUD_REGION }}-docker.pkg.dev/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}-gar-usea1-docker/turtle-quant-1:${{ steps.psr.outputs.version }}"
+          IMAGE_TAG="${{ vars.TURTLEQUANT1_GCLOUD_REGION }}-docker.pkg.dev/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}-gar-usea1-docker/turtle-quant-1:${{ needs.version.outputs.version }}"
           
           echo "Building image..."
           docker build -t $IMAGE_TAG --platform linux/amd64 -f Dockerfile .
