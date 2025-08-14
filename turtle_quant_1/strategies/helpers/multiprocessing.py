@@ -3,42 +3,42 @@ import hashlib
 import logging
 import os
 import pickle
-import shutil
 import tempfile
 import threading
 import time
-import uuid
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+CACHE_DIR_PATH = Path(os.path.join(tempfile.gettempdir(), "turtle-quant-1"))
+
 
 class ProcessSafeCache:
     """Process-safe cache using file-based storage with proper locking."""
 
-    def __init__(self, cache_dir_path: str | None = None):
-        """Initialize the cache with a directory for storage."""
-        if cache_dir_path is None:
-            # Use a temporary directory that's shared across processes
-            cache_dir_path = os.path.join(tempfile.gettempdir(), "turtle-quant-1")
-            logger.debug(f"Using temporary cache directory '{cache_dir_path}'...")
+    # @classmethod
+    # def clear(cls):
+    #     """Delete the cache directory.
 
-        self.cache_dir_path = Path(cache_dir_path)
+    #     This cannot be done inside `__init__` because multiple ProcessSafeCache instances can be created across processes.
+    #     This should be called before the StrategyEngine fires off separate processes.
+    #     """
+    #     if CACHE_DIR_PATH.exists():
+    #         shutil.rmtree(CACHE_DIR_PATH)
+    #         logger.info(f"Deleted cache directory '{CACHE_DIR_PATH}'")
+
+    def __init__(self):
+        """Initialize the cache with a directory for storage."""
+        self.cache_dir_path = CACHE_DIR_PATH
         self.cache_dir_path.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Using temporary cache directory '{self.cache_dir_path}'...")
 
         # Use file-based locking for cross-process synchronization
         self.lock_file = self.cache_dir_path / "cache.lock"
         self._local_cache = {}  # In-memory cache for performance
         self._local_lock = threading.Lock()  # Thread-level locking
-
-    def __del__(self):
-        """Delete the cache directory."""
-        # if self.cache_dir_path.exists():
-        #     shutil.rmtree(self.cache_dir_path)
-        #     logger.info(f"Deleted cache directory '{self.cache_dir_path}'")
-        pass
 
     def _get_cache_file_path(self, key: str) -> Path:
         """Get the file path for a cache key."""
