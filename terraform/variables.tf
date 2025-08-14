@@ -29,3 +29,8 @@ variable "turtlequant1_alpha_vantage_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "turtlequant1_max_workers" {
+  description = "The maximum number of workers to use"
+  type        = string
+}

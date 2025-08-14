@@ -111,6 +111,7 @@ jobs:
               -e "s|{{TURTLEQUANT1_GCLOUD_PROJECT_ID}}|${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}|g" \
               -e "s|{{TURTLEQUANT1_GCLOUD_STB_DATA_NAME}}|${{ vars.TURTLEQUANT1_GCLOUD_STB_DATA_NAME }}|g" \
               -e "s|{{TURTLEQUANT1_ALPHA_VANTAGE_API_KEY}}|${{ secrets.TURTLEQUANT1_ALPHA_VANTAGE_API_KEY }}|g" \
+              -e "s|{{TURTLEQUANT1_MAX_WORKERS}}|${{ vars.TURTLEQUANT1_MAX_WORKERS }}|g" \
               terraform/p.tfvars.template > terraform/terraform.tfvars
 
       - name: ⚙️ Terraform Init

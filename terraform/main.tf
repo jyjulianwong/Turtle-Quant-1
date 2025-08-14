@@ -46,6 +46,11 @@ resource "google_cloud_run_service" "app" {
           name  = "TURTLEQUANT1_ALPHA_VANTAGE_API_KEY"
           value = var.turtlequant1_alpha_vantage_api_key
         }
+
+        env {
+          name  = "TURTLEQUANT1_MAX_WORKERS"
+          value = var.turtlequant1_max_workers
+        }
       }
     }
   }

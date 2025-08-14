@@ -1,8 +1,8 @@
 """Test configuration and fixtures."""
 
-from datetime import datetime
-import os
 import logging
+import os
+from datetime import datetime
 
 import pandas as pd
 import pytest
@@ -12,20 +12,23 @@ logger = logging.getLogger(__name__)
 
 
 def pytest_sessionstart(session):
-    workerinput = getattr(session.config, 'workerinput', None)
+    workerinput = getattr(session.config, "workerinput", None)
     if workerinput is None:
         logger.info("Running on Master Process, or not running in parallel at all...")
         os.environ["TURTLEQUANT1_ENV"] = "d"
         os.environ["TURTLEQUANT1_GCLOUD_REGION"] = "us-east1"
         os.environ["TURTLEQUANT1_GCLOUD_PROJECT_ID"] = "jyw-turtlequant1-p"
-        os.environ["TURTLEQUANT1_GCLOUD_STB_DATA_NAME"] = "jyw-turtlequant1-p-stb-usea1-data"
+        os.environ["TURTLEQUANT1_GCLOUD_STB_DATA_NAME"] = (
+            "jyw-turtlequant1-p-stb-usea1-data"
+        )
         os.environ["TURTLEQUANT1_ALPHA_VANTAGE_API_KEY"] = "0"
+        os.environ["TURTLEQUANT1_MAX_WORKERS"] = "0"
     else:
         logger.info(f"Running on Worker: {workerinput['workerid']}...")
 
 
 def pytest_sessionfinish(session, exitstatus):
-    workerinput = getattr(session.config, 'workerinput', None)
+    workerinput = getattr(session.config, "workerinput", None)
     if workerinput is None:
         logger.info("Exiting the Master Process, or running serially...")
     else:
@@ -50,4 +53,3 @@ def sample_ohlcv_data():
     data = data.reset_index()
     data = data.rename(columns={"index": "datetime"})
     return data[["datetime", "Open", "High", "Low", "Close", "Volume"]]
-
