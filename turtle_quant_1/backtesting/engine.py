@@ -20,6 +20,7 @@ from turtle_quant_1.config import (
 from turtle_quant_1.data_processing.processor import DataProcessor
 from turtle_quant_1.strategies.base import BaseStrategyEngine, SignalAction
 from turtle_quant_1.strategies.helpers.multiprocessing import ProcessSafeCache
+from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -73,14 +74,18 @@ class BacktestingEngine:
 
         for symbol in self.symbols:
             # Check if data exists in cache
-            cached_data = cache.get(symbol)
-            if cached_data is not None:
-                self.data_cache[symbol] = cached_data
-            else:
+            data = cache.get(symbol)
+            if data is None:
                 # Load and cache the data
                 data = self._load_data_for_symbol(symbol, impute_data=True)
                 cache.set(symbol, data)
-                self.data_cache[symbol] = data
+
+            self.data_cache[symbol] = data
+
+            # This reduces duplicated calculations across all SupResIndicator instances,
+            # because the cache is a global singleton.
+            # This needs to be done before the StrategyEngine fires off separate processes.
+            SupResIndicator.preload_global_instance_cache(symbol, data)
 
         # For quantstats metrics
         self.portfolio_returns: List[Tuple[datetime, float]] = []

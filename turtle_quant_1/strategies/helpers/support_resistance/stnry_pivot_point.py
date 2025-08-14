@@ -1,8 +1,10 @@
 """Stationary pivot point support and resistance strategy."""
 
+import numpy as np
 import pandas as pd
+from sklearn.preprocessing import MultiLabelBinarizer
 
-from turtle_quant_1.strategies.helpers.helpers import convert_to_weekly_data
+from turtle_quant_1.strategies.helpers.helpers import round_to_sig_fig
 
 from .base import BaseSupResStrategy
 
@@ -28,30 +30,7 @@ class StnryPivotPoint(BaseSupResStrategy):
 
         self.sup_res_zone_threshold = 0.01  # Within 2% of the level
 
-    def _get_quarterly_dfs(self, data: pd.DataFrame) -> pd.api.typing.DataFrameGroupBy:
-        """Get the quarterly data for a given DataFrame.
-
-        Args:
-            data: DataFrame with OHLC data.
-
-        Returns:
-            DataFrame GroupBy with quarterly data.
-        """
-        # Ensure datetime column exists or use index
-        if "datetime" in data.columns:
-            data = data.copy()
-            data["datetime"] = pd.to_datetime(data["datetime"])
-            data.set_index("datetime", inplace=True)
-        else:
-            data = data.copy()
-            # pyrefly: ignore
-            data.index = pd.to_datetime(data.index)
-
-        # Group by quarter to calculate quarterly levels
-        quarterly_groups = data.groupby(pd.Grouper(freq="3ME"))
-        return quarterly_groups
-
-    def _calc_pivot_levels(self, quarter_data: pd.DataFrame) -> list[float]:
+    def _calc_pivot_levels(self, data: pd.DataFrame) -> list[float]:
         """Calculate PP, S1, S2, R1, R2 levels for a quarter's data.
 
         Args:
@@ -61,9 +40,9 @@ class StnryPivotPoint(BaseSupResStrategy):
             List containing [PP, S1, S2, R1, R2] values.
         """
         # Get the high, low, and close for the quarter
-        high = quarter_data["High"].max()
-        low = quarter_data["Low"].min()
-        close = quarter_data["Close"].iloc[-1]  # Last close of the quarter
+        high = data["High"].max()
+        low = data["Low"].min()
+        close = data["Close"].iloc[-1]  # Last close of the quarter
 
         # Calculate pivot point
         pp = (high + low + close) / 3
@@ -79,6 +58,26 @@ class StnryPivotPoint(BaseSupResStrategy):
         # Return in order: PP, S1, S2, R1, R2
         return [pp, s1, s2, r1, r2]
 
+    def _calc_sup_res_levels(
+        self,
+        data: pd.DataFrame,
+        lookback: int = 12,  # TODO: Respect CANDLE_UNIT.
+    ) -> list[np.ndarray]:
+        level_values = [np.full(128, 0.0) for _ in range(len(data))]
+        # TODO: Vectorize.
+        for i in range(lookback, len(data)):
+            i_start = i - lookback
+            levels = self._calc_pivot_levels(data.iloc[i_start:i])
+            # Round values to reduce number of unique values
+            # This is needed for the MultiLabelBinarizer to work later on
+            rounded_levels = round_to_sig_fig(levels, 4)
+            # Create fixed-size array with padding
+            fixed_array = np.full(128, 0.0)
+            fixed_array[: len(rounded_levels)] = rounded_levels
+            level_values[i] = fixed_array
+
+        return level_values
+
     def generate_historical_levels(
         self, data: pd.DataFrame, symbol: str
     ) -> pd.DataFrame:
@@ -90,47 +89,23 @@ class StnryPivotPoint(BaseSupResStrategy):
             symbol: The symbol being analyzed.
 
         Returns:
-            DataFrame with quarterly pivot point levels.
-            The columns are: ['datetime_beg', 'datetime_end', 'level_values'].
-            The 'level_values' column contains [PP, S1, S2, R1, R2] for each quarter.
+            DataFrame with pivot point levels.
+            The columns are: ['datetime', 'level_values'].
+            The 'level_values' column contains [PP, S1, S2, R1, R2] for each timestamp.
         """
         # Ensure we have the required columns
         required_cols = ["High", "Low", "Close"]
         if not all(col in data.columns for col in required_cols):
             raise ValueError(f"Data must contain {required_cols} columns")
 
-        weekly_data = convert_to_weekly_data(data)
-        # Group by quarter to calculate quarterly levels
-        quarterly_groups = self._get_quarterly_dfs(weekly_data)
+        level_values = self._calc_sup_res_levels(data)
 
-        results = []
+        # Create output DataFrame with 1-to-1 mapping to original data
+        result = pd.DataFrame(
+            {
+                "datetime": pd.to_datetime(data["datetime"]).reset_index(drop=True),
+                "level_values": level_values,
+            }
+        )
 
-        for quarter_end, quarter_data in quarterly_groups:
-            if len(quarter_data) == 0:
-                continue
-
-            # Calculate pivot point levels for this quarter
-            level_values = self._calc_pivot_levels(quarter_data)
-
-            # Get quarter start and end dates
-            quarter_start_actual = quarter_data.index[0]
-            quarter_end_actual = quarter_data.index[-1]
-
-            quarter_start_buffered = max(
-                quarter_start_actual - pd.Timedelta(days=30),
-                data.iloc[0]["datetime"],
-            )
-            quarter_end_buffered = min(
-                quarter_end_actual + pd.Timedelta(days=30),
-                data.iloc[-1]["datetime"],
-            )
-
-            results.append(
-                {
-                    "datetime_beg": quarter_start_buffered,
-                    "datetime_end": quarter_end_buffered,
-                    "level_values": level_values,
-                }
-            )
-
-        return pd.DataFrame(results)
+        return result

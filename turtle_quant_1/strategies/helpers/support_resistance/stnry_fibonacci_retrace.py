@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import scipy.signal as sp
 
-from turtle_quant_1.strategies.helpers.helpers import convert_to_weekly_data
+from turtle_quant_1.strategies.helpers.helpers import round_to_sig_fig
 
 from .base import BaseSupResStrategy
 
@@ -91,7 +91,7 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
         swings.sort(key=lambda x: x[0])
         return swings
 
-    def _calc_fibonacci_levels(
+    def _calc_fibonacci_levels_for_swings(
         self, high_price: float, low_price: float
     ) -> List[float]:
         """Calculate Fibonacci retracement levels between high and low.
@@ -125,36 +125,15 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
 
         return fib_levels
 
-    def generate_historical_levels(
-        self, data: pd.DataFrame, symbol: str
-    ) -> pd.DataFrame:
-        """Generate Fibonacci retracement levels for the entire dataset duration.
-
-        Args:
-            data: DataFrame with OHLCV data containing columns:
-                  ['datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
-            symbol: The symbol being analyzed.
-
-        Returns:
-            DataFrame with one row containing all Fibonacci retracement levels
-            for the entire dataset duration.
-            The columns are: ['datetime_beg', 'datetime_end', 'level_values'].
-        """
-        # Ensure we have the required columns
-        required_cols = ["High", "Low"]
-        if not all(col in data.columns for col in required_cols):
-            raise ValueError(f"Data must contain {required_cols} columns")
-
-        weekly_data = convert_to_weekly_data(data)
-
+    def _calc_fibonacci_levels_for_candle(
+        self, data: pd.DataFrame, idx: int
+    ) -> list[float]:
         # Find all swing highs and lows for the entire dataset
-        all_swings = self._find_swing_highs_lows(weekly_data)
+        all_swings = self._find_swing_highs_lows(data.iloc[:idx])
 
         if len(all_swings) < 2:
             # Need at least some swings to calculate Fibonacci levels
-            return pd.DataFrame(
-                columns=["datetime_beg", "datetime_end", "level_values"]
-            )
+            return []
 
         all_levels = []
 
@@ -168,7 +147,7 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
             lowest_swing = min(lows, key=lambda x: x[1])
 
             # Calculate Fibonacci levels between the absolute extremes
-            primary_fib_levels = self._calc_fibonacci_levels(
+            primary_fib_levels = self._calc_fibonacci_levels_for_swings(
                 highest_swing[1], lowest_swing[1]
             )
             all_levels.extend(primary_fib_levels)
@@ -181,37 +160,66 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
             # Calculate Fibonacci levels between significant swing pairs
             for high_swing in significant_highs:
                 for low_swing in significant_lows:
-                    fib_levels = self._calc_fibonacci_levels(
+                    fib_levels = self._calc_fibonacci_levels_for_swings(
                         high_swing[1], low_swing[1]
                     )
                     all_levels.extend(fib_levels)
 
         if not all_levels:
-            return pd.DataFrame(
-                columns=["datetime_beg", "datetime_end", "level_values"]
-            )
+            return []
 
         # Remove duplicates and sort
         all_levels = list(set(all_levels))
         all_levels.sort()
 
-        # Create single row result covering the entire dataset duration
-        start_date = (
-            weekly_data.iloc[0]["datetime"]
-            if "datetime" in weekly_data.columns
-            else weekly_data.index[0]
-        )
-        end_date = (
-            weekly_data.iloc[-1]["datetime"]
-            if "datetime" in weekly_data.columns
-            else weekly_data.index[-1]
-        )
+        return all_levels
 
+    def _calc_sup_res_levels(
+        self,
+        data: pd.DataFrame,
+        lookback: int = 12,  # TODO: Respect CANDLE_UNIT.
+    ) -> list[np.ndarray]:
+        level_values = [np.full(128, 0.0) for _ in range(len(data))]
+        # TODO: Vectorize.
+        for i in range(lookback, len(data)):
+            i_start = i - lookback
+            levels = self._calc_fibonacci_levels_for_candle(data.iloc[i_start:i], i)
+            # Round values to reduce number of unique values
+            # This is needed for the MultiLabelBinarizer to work later on
+            rounded_levels = round_to_sig_fig(levels, 4)
+            # Create fixed-size array with padding
+            fixed_array = np.full(128, 0.0)
+            fixed_array[: len(rounded_levels)] = rounded_levels
+            level_values[i] = fixed_array
+
+        return level_values
+
+    def generate_historical_levels(
+        self, data: pd.DataFrame, symbol: str
+    ) -> pd.DataFrame:
+        """Generate Fibonacci retracement levels for historical data.
+
+        Args:
+            data: DataFrame with OHLCV data containing columns:
+                  ['datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
+            symbol: The symbol being analyzed.
+
+        Returns:
+            DataFrame with Fibonacci retracement levels.
+            The columns are: ['datetime', 'level_values'].
+        """
+        # Ensure we have the required columns
+        required_cols = ["High", "Low"]
+        if not all(col in data.columns for col in required_cols):
+            raise ValueError(f"Data must contain {required_cols} columns")
+
+        level_values = self._calc_sup_res_levels(data)
+
+        # Create output DataFrame with 1-to-1 mapping to original data
         result = pd.DataFrame(
             {
-                "datetime_beg": [start_date],
-                "datetime_end": [end_date],
-                "level_values": [all_levels],
+                "datetime": pd.to_datetime(data["datetime"]).reset_index(drop=True),
+                "level_values": level_values,
             }
         )
 

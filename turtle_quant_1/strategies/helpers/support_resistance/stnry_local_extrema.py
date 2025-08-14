@@ -3,8 +3,9 @@
 import numpy as np
 import pandas as pd
 import scipy.signal as sp
+from sklearn.preprocessing import MultiLabelBinarizer
 
-from turtle_quant_1.strategies.helpers.helpers import convert_to_weekly_data
+from turtle_quant_1.strategies.helpers.helpers import round_to_sig_fig
 
 from .base import BaseSupResStrategy
 
@@ -46,7 +47,30 @@ class StnryLocalExtrema(BaseSupResStrategy):
         self.peak_rank_width = peak_rank_width
         self.res_min_pivot_rank = res_min_pivot_rank
 
-    def _calc_support_levels(self, data: pd.DataFrame) -> list[float]:
+    def _get_binned_levels(self, levels: list[float]) -> list[float]:
+        """Bin nearby levels together and return their averages."""
+        if not levels:
+            return []
+
+        # Initialize bins
+        level_bins = []
+        current_bin = [levels[0]]
+
+        # Loop through sorted levels and bin them
+        for level in levels[1:]:
+            if level - current_bin[-1] < self.peak_rank_width:
+                current_bin.append(level)
+            else:
+                level_bins.append(current_bin)
+                current_bin = [level]
+
+        # Append the last bin
+        level_bins.append(current_bin)
+
+        # Calculate average for each bin
+        return [float(np.mean(bin_levels)) for bin_levels in level_bins]
+
+    def _calc_sup_levels(self, data: pd.DataFrame) -> list[float]:
         """Calculate support levels from low prices using inverted peak finding."""
         close_prices = data["Close"].values
 
@@ -86,7 +110,7 @@ class StnryLocalExtrema(BaseSupResStrategy):
         supports.sort()
         return self._get_binned_levels(supports)
 
-    def _calc_resistance_levels(self, data: pd.DataFrame) -> list[float]:
+    def _calc_res_levels(self, data: pd.DataFrame) -> list[float]:
         """Calculate resistance levels from high prices."""
         high_prices = data["High"].values
         low_prices = data["Low"].values
@@ -149,28 +173,31 @@ class StnryLocalExtrema(BaseSupResStrategy):
         resistances.sort()
         return self._get_binned_levels(resistances)
 
-    def _get_binned_levels(self, levels: list[float]) -> list[float]:
-        """Bin nearby levels together and return their averages."""
-        if not levels:
-            return []
+    def _calc_sup_res_levels(
+        self,
+        data: pd.DataFrame,
+        lookback: int = 12,  # TODO: Respect CANDLE_UNIT.
+    ) -> list[np.ndarray]:
+        level_values = [np.full(128, 0.0) for _ in range(len(data))]
+        # TODO: Vectorize.
+        for i in range(lookback, len(data)):
+            i_start = i - lookback
+            # Calculate resistance levels
+            ress = self._calc_res_levels(data.iloc[i_start:i])
+            # Calculate support levels using the same logic on inverted low prices
+            sups = self._calc_sup_levels(data.iloc[i_start:i])
+            # Combine all levels
+            levels = ress + sups
+            levels.sort()
+            # Round values to reduce number of unique values
+            # This is needed for the MultiLabelBinarizer to work later on
+            rounded_levels = round_to_sig_fig(levels, 4)
+            # Create fixed-size array with padding
+            fixed_array = np.full(128, 0.0)
+            fixed_array[: len(rounded_levels)] = rounded_levels
+            level_values[i] = fixed_array
 
-        # Initialize bins
-        level_bins = []
-        current_bin = [levels[0]]
-
-        # Loop through sorted levels and bin them
-        for level in levels[1:]:
-            if level - current_bin[-1] < self.peak_rank_width:
-                current_bin.append(level)
-            else:
-                level_bins.append(current_bin)
-                current_bin = [level]
-
-        # Append the last bin
-        level_bins.append(current_bin)
-
-        # Calculate average for each bin
-        return [float(np.mean(bin_levels)) for bin_levels in level_bins]
+        return level_values
 
     def generate_historical_levels(
         self, data: pd.DataFrame, symbol: str
@@ -183,38 +210,20 @@ class StnryLocalExtrema(BaseSupResStrategy):
             symbol: The symbol being analyzed.
 
         Returns:
-            DataFrame with one row containing all support and resistance levels.
+            DataFrame with support and resistance levels.
+            The columns are: ['datetime', 'level_values'].
         """
         # Ensure we have the required columns
         if not all(col in data.columns for col in ["High", "Low"]):
             raise ValueError("Data must contain 'High' and 'Low' columns")
 
-        weekly_data = convert_to_weekly_data(data)
+        level_values = self._calc_sup_res_levels(data)
 
-        # Calculate resistance levels
-        resistances = self._calc_resistance_levels(weekly_data)
-
-        # Calculate support levels using the same logic on inverted low prices
-        supports = self._calc_support_levels(weekly_data)
-
-        # Combine all levels
-        all_levels = resistances + supports
-        all_levels.sort()
-
-        # Create output DataFrame - single row since these are static levels
+        # Create output DataFrame with 1-to-1 mapping to original data
         result = pd.DataFrame(
             {
-                "datetime_beg": [
-                    data["datetime"].iloc[0]
-                    if "datetime" in data.columns
-                    else data.index[0]
-                ],
-                "datetime_end": [
-                    data["datetime"].iloc[-1]
-                    if "datetime" in data.columns
-                    else data.index[-1]
-                ],
-                "level_values": [all_levels],
+                "datetime": pd.to_datetime(data["datetime"]).reset_index(drop=True),
+                "level_values": level_values,
             }
         )
 

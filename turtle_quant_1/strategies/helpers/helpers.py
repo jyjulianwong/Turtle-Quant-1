@@ -1,10 +1,17 @@
-from typing import Literal
-
+import numpy as np
 import pandas as pd
 
 
-def get_wick_direction(row: pd.Series) -> Literal["up", "down", "neutral"]:
-    """Determine the direction of the candlestick wick.
+def round_to_sig_fig(x, p):
+    """Round a list of numbers to a specified number of significant figures."""
+    x = np.asarray(x, dtype=float)
+    x_positive = np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1))
+    mags = 10 ** (p - 1 - np.floor(np.log10(x_positive)))
+    return np.round(x * mags) / mags
+
+
+def get_wick_direction(row: pd.Series) -> int:
+    """Determine the direction of the candlestick wick for a single row of a DataFrame.
 
     Args:
         row: The row to check.
@@ -17,10 +24,36 @@ def get_wick_direction(row: pd.Series) -> Literal["up", "down", "neutral"]:
     lower_wick = min(row["Close"], row["Open"]) - row["Low"]
 
     if upper_wick > lower_wick * 1.2:
-        return "up"
+        return +1  # "up"
     if lower_wick > upper_wick * 1.2:
-        return "down"
-    return "neutral"
+        return -1  # "down"
+    return 0  # "neutral"
+
+
+def get_wick_directions_vectorized(data: pd.DataFrame) -> pd.Series:
+    """Vectorized version of get_wick_direction for entire DataFrame.
+
+    Args:
+        data: DataFrame with OHLC data
+
+    Returns:
+        Series with wick directions: +1 for "up", -1 for "down", 0 for "neutral"
+    """
+    # Calculate upper and lower wicks vectorized
+    upper_wick = data["High"] - pd.DataFrame(
+        {"Close": data["Close"], "Open": data["Open"]}
+    ).max(axis=1)
+    lower_wick = (
+        pd.DataFrame({"Close": data["Close"], "Open": data["Open"]}).min(axis=1)
+        - data["Low"]
+    )
+
+    # Vectorized direction logic
+    wick_direction = pd.Series(0, index=data.index)  # Default to neutral (0)
+    wick_direction.loc[upper_wick > lower_wick * 1.2] = +1  # "up"
+    wick_direction.loc[lower_wick > upper_wick * 1.2] = -1  # "down"
+
+    return wick_direction
 
 
 def convert_to_daily_data(data: pd.DataFrame) -> pd.DataFrame:

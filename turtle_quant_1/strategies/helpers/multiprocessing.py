@@ -9,6 +9,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -22,7 +23,7 @@ class ProcessSafeCache:
         if cache_dir_path is None:
             # Use a temporary directory that's shared across processes
             cache_dir_path = os.path.join(tempfile.gettempdir(), "turtle-quant-1")
-            logger.info(f"Created temporary cache directory '{cache_dir_path}'")
+            logger.debug(f"Using temporary cache directory '{cache_dir_path}'...")
 
         self.cache_dir_path = Path(cache_dir_path)
         self.cache_dir_path.mkdir(parents=True, exist_ok=True)
@@ -97,7 +98,7 @@ class ProcessSafeCache:
 
         return None
 
-    def set(self, key: str, value):
+    def set(self, key: str, value: Any):
         """Set a value in the cache."""
         cache_file = self._get_cache_file_path(key)
         lock_fd = None

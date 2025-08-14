@@ -13,75 +13,51 @@ class EngulfingPattern(BaseStrategy):
 
         self.sup_res_indicator = SupResIndicator()
 
-    def _get_score_for_candle(self, data: pd.DataFrame, idx: int, symbol: str) -> float:
-        """Get a single score for the engulfing pattern.
+    def _get_score_for_candles_vectorized(
+        self, data: pd.DataFrame, symbol: str
+    ) -> pd.Series:
+        """Vectorized detection of engulfing patterns."""
+        # Shift data to get previous candle
+        prev_open = data["Open"].shift(1)
+        prev_close = data["Close"].shift(1)
+        curr_open = data["Open"]
+        curr_close = data["Close"]
 
-        This checks if the last candle is an engulfing pattern and if it is in a support or resistance zone.
-
-        Args:
-            data: The data to get the score for.
-            idx: The index of the current row.
-
-        Returns:
-            The score for the engulfing pattern.
-        """
-
-        if idx < 1:
-            return 0.0
-
-        prev: pd.Series = data.iloc[idx - 1]
-        curr: pd.Series = data.iloc[idx]
-
-        if (
-            prev["Close"] < prev["Open"]
-            and curr["Close"] > curr["Open"]
-            and curr["Open"] < prev["Close"]
-            and curr["Close"] > prev["Open"]
-        ):
-            return (
-                +1.0
-                if self.sup_res_indicator.is_sup_res_zone(data, idx, symbol)
-                else 0.0
-            )  # Bullish
-        if (
-            prev["Close"] > prev["Open"]
-            and curr["Close"] < curr["Open"]
-            and curr["Open"] > prev["Close"]
-            and curr["Close"] < prev["Open"]
-        ):
-            return (
-                -1.0
-                if self.sup_res_indicator.is_sup_res_zone(data, idx, symbol)
-                else 0.0
-            )  # Bearish
-        return 0.0
-
-    def _get_score(self, data: pd.DataFrame, idx: int, symbol: str) -> float:
-        """Uses _get_score_for_candle to get the maximum score for the last 6 candles.
-
-        Checks if this candlestick pattern has occurred in the last 6 timestamps.
-
-        Args:
-            data: The data to get the score for.
-            idx: The index of the current row.
-
-        Returns:
-            The score for the engulfing pattern.
-        """
-        if idx - 6 < 0:
-            return 0.0  # Data out of range
-
-        recent_data = data.iloc[idx - 6 : idx]  # TODO: Respect CANDLE_UNIT.
-        scores = recent_data.apply(
-            lambda row: self._get_score_for_candle(data, row.name, symbol), axis=1
+        # Vectorized bullish engulfing detection
+        bullish = (
+            (prev_close < prev_open)  # Previous candle is bearish
+            & (curr_close > curr_open)  # Current candle is bullish
+            & (curr_open < prev_close)  # Current opens below prev close
+            & (curr_close > prev_open)  # Current closes above prev open
         )
-        return scores.max()
+
+        # Vectorized bearish engulfing detection
+        bearish = (
+            (prev_close > prev_open)  # Previous candle is bullish
+            & (curr_close < curr_open)  # Current candle is bearish
+            & (curr_open > prev_close)  # Current opens above prev close
+            & (curr_close < prev_open)  # Current closes below prev open
+        )
+
+        sup_res_zones = self.sup_res_indicator.is_sup_res_zone_vectorized(
+            data, symbol
+        ).astype(float)
+
+        # Return pattern scores
+        return (bullish.astype(float) - bearish.astype(float)) * sup_res_zones
 
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
-        scores = data.apply(lambda row: self._get_score(data, row.name, symbol), axis=1)
+        scores = self._get_score_for_candles_vectorized(data, symbol)
+        # Check for any occurrence of the pattern in last 6 candles
+        scores = scores.fillna(0).rolling(window=6).sum().clip(-1, 1)
+
         return pd.Series(
             data=scores.values, index=pd.to_datetime(data["datetime"]), dtype=float
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
-        return float(self._get_score(data, len(data) - 1, symbol))
+        scores = self._get_score_for_candles_vectorized(data, symbol)
+        # Check for any occurrence of the pattern in last 6 candles
+        scores = scores.fillna(0).rolling(window=6).sum().clip(-1, 1)
+
+        return float(scores.iloc[-1])

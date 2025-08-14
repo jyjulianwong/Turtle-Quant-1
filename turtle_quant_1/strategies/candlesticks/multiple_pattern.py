@@ -1,7 +1,7 @@
 import pandas as pd
 
 from turtle_quant_1.strategies.base import BaseStrategy
-from turtle_quant_1.strategies.helpers.helpers import get_wick_direction
+from turtle_quant_1.strategies.helpers.helpers import get_wick_directions_vectorized
 from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
 
 
@@ -14,59 +14,48 @@ class MultiplePattern(BaseStrategy):
 
         self.sup_res_indicator = SupResIndicator()
 
-    def _get_score_for_candle(self, data: pd.DataFrame, idx: int, symbol: str) -> float:
-        """Get a single score for the multiple pattern.
+    def _get_score_for_candles_vectorized(
+        self, data: pd.DataFrame, symbol: str
+    ) -> pd.Series:
+        """Vectorized detection of multiple patterns.
 
-        This checks if 3 consecutivecandles have the same direction and if they are in a support or resistance zone.
-
-        Args:
-            data: The data to get the score for.
-            idx: The index of the current row.
-
-        Returns:
-            The score for the multiple pattern.
+        This checks if 3 consecutive candles have the same direction and if they are
+        in a support or resistance zone.
         """
+        # Get vectorized wick directions for all candles
+        wick_directions = get_wick_directions_vectorized(data)
 
-        wick_dirs = [
-            get_wick_direction(row) for _, row in data.iloc[idx - 3 : idx].iterrows()
-        ]
+        # Rolling count of consecutive up wicks (value = 1) in last 3 candles
+        up_count = (wick_directions == +1).astype(int).rolling(window=3).sum()
+        # Rolling count of consecutive down wicks (value = -1) in last 3 candles
+        down_count = (wick_directions == -1).astype(int).rolling(window=3).sum()
 
-        if wick_dirs.count("down") >= 3 and self.sup_res_indicator.is_sup_res_zone(
-            data, idx, symbol
-        ):
-            return +1.0  # bullish reversal
-        elif wick_dirs.count("up") >= 3 and self.sup_res_indicator.is_sup_res_zone(
-            data, idx, symbol
-        ):
-            return -1.0  # bearish reversal
-        return 0.0
+        # Pattern detected when we have 3 or more of the same direction
+        bullish_pattern = down_count >= 3  # 3+ down wicks suggest bullish reversal
+        bearish_pattern = up_count >= 3  # 3+ up wicks suggest bearish reversal
 
-    def _get_score(self, data: pd.DataFrame, idx: int, symbol: str) -> float:
-        """Uses _get_score_for_candle to get the maximum score for the last 6 candles.
+        # Get support/resistance zones (vectorized)
+        sup_res_zones = self.sup_res_indicator.is_sup_res_zone_vectorized(
+            data, symbol
+        ).astype(float)
 
-        Checks if this candlestick pattern has occurred in the last 6 timestamps.
-
-        Args:
-            data: The data to get the score for.
-            idx: The index of the current row.
-
-        Returns:
-            The score for the multiple pattern.
-        """
-        if idx - 6 < 0:
-            return 0.0  # Data out of range
-
-        recent_data = data.iloc[idx - 6 : idx]  # TODO: Respect CANDLE_UNIT.
-        scores = recent_data.apply(
-            lambda row: self._get_score_for_candle(data, row.name, symbol), axis=1
-        )
-        return scores.max()
+        # Return pattern scores (only in sup/res zones)
+        return (
+            bullish_pattern.astype(float) - bearish_pattern.astype(float)
+        ) * sup_res_zones
 
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
-        scores = data.apply(lambda row: self._get_score(data, row.name, symbol), axis=1)
+        scores = self._get_score_for_candles_vectorized(data, symbol)
+        # Check for any occurrence of the pattern in last 6 candles
+        scores = scores.fillna(0).rolling(window=6).sum().clip(-1, 1)
+
         return pd.Series(
             data=scores.values, index=pd.to_datetime(data["datetime"]), dtype=float
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
-        return float(self._get_score(data, len(data) - 1, symbol))
+        scores = self._get_score_for_candles_vectorized(data, symbol)
+        # Check for any occurrence of the pattern in last 6 candles
+        scores = scores.fillna(0).rolling(window=6).sum().clip(-1, 1)
+
+        return float(scores.iloc[-1])

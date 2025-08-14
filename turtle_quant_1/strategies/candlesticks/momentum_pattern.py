@@ -1,66 +1,61 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from turtle_quant_1.strategies.base import BaseStrategy
 
 
 class MomentumPattern(BaseStrategy):
-    def _is_sideways_market(
+    def _is_sideways_region_vectorized(
         self, data: pd.DataFrame, window: int = 20, flat_threshold: float = 0.015
-    ) -> bool:
+    ) -> pd.Series:
+        """Vectorized check if the market is in a sideways pattern for all points."""
         recent: pd.DataFrame = data["Close"].rolling(window).agg(["max", "min"])
         flat_range: pd.Series = recent["max"] - recent["min"]
         mean_price: pd.Series = data["Close"].rolling(window).mean()
         ratio: pd.Series = flat_range / mean_price
-        return ratio.iloc[-1] < flat_threshold
+        return ratio < flat_threshold
 
-    def _get_score_for_candle(self, data: pd.DataFrame, idx: int) -> float:
-        """Get a single score for the momentum pattern.
+    def _get_score_for_candles_vectorized(
+        self, data: pd.DataFrame, symbol: str
+    ) -> pd.Series:
+        """Vectorized detection of momentum patterns.
 
-        This checks if the last candle has a strong body and if the market is sideways.
-
-        Args:
-            data: The data to get the score for.
-            idx: The index of the current row.
-
-        Returns:
-            The score for the momentum pattern.
+        This checks if candles have strong bodies and if the market is sideways.
         """
-        candle_body_range = abs(float(data["Close"].iloc[idx] - data["Open"].iloc[idx]))
-        candle_wick_range = float(data["High"].iloc[idx] - data["Low"].iloc[idx])
-        has_strong_body = candle_body_range / candle_wick_range > 0.7
+        # Calculate candle body and wick ranges vectorized
+        candle_body_range = (data["Close"] - data["Open"]).abs()
+        candle_wick_range = data["High"] - data["Low"]
 
-        if has_strong_body and self._is_sideways_market(data.iloc[:idx]):
-            return float(np.sign(data["Close"].iloc[idx] - data["Open"].iloc[idx]))
+        # Avoid division by zero for doji candles
+        candle_wick_range = candle_wick_range.replace(0, np.nan)
 
-        return 0.0
+        # Detect strong body candles (avoid NaN results)
+        has_strong_body = (candle_body_range / candle_wick_range) > 0.7
+        has_strong_body = has_strong_body.fillna(False)
 
-    def _get_score(self, data: pd.DataFrame, idx: int) -> float:
-        """Uses _get_score_for_candle to get the maximum score for the last 6 candles.
+        # Detect sideways market for each candle using vectorized method
+        is_sideways = self._is_sideways_region_vectorized(data)
 
-        Checks if this candlestick pattern has occurred in the last 6 timestamps.
+        # Calculate direction of the candle (bullish=1, bearish=-1)
+        candle_direction = np.sign(data["Close"] - data["Open"])
 
-        Args:
-            data: The data to get the score for.
-            idx: The index of the current row.
+        # Pattern score: Strong body in sideways region gets direction score
+        pattern_scores = has_strong_body & is_sideways
 
-        Returns:
-            The score for the momentum pattern.
-        """
-        if idx - 6 < 0:
-            return 0.0  # Data out of range
-
-        recent_data = data.iloc[idx - 6 : idx]  # TODO: Respect CANDLE_UNIT.
-        scores = recent_data.apply(
-            lambda row: self._get_score_for_candle(data, row.name), axis=1
-        )
-        return scores.max()
+        return pattern_scores.astype(float) * candle_direction
 
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
-        scores = data.apply(lambda row: self._get_score(data, row.name), axis=1)
+        scores = self._get_score_for_candles_vectorized(data, symbol)
+        # Check for any occurrence of the pattern in last 6 candles
+        scores = scores.fillna(0).rolling(window=6).sum().clip(-1, 1)
+
         return pd.Series(
             data=scores.values, index=pd.to_datetime(data["datetime"]), dtype=float
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
-        return float(self._get_score(data, len(data) - 1))
+        scores = self._get_score_for_candles_vectorized(data, symbol)
+        # Check for any occurrence of the pattern in last 6 candles
+        scores = scores.fillna(0).rolling(window=6).sum().clip(-1, 1)
+
+        return float(scores.iloc[-1])
