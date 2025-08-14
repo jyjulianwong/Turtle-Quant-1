@@ -60,20 +60,22 @@ jobs:
           python -m pip install uv
           uv sync --group dev
 
-      - name: 📦 Run Semantic Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: uv run semantic-release publish
+      - id: psr
+        uses: python-semantic-release/python-semantic-release@v10
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 📦 Get release version
-        id: get_version
+      - name: Show computed version/tag
         run: |
-          VERSION=$(uv run semantic-release print-version --current)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Released:  ${{ steps.psr.outputs.released }}"
+          echo "Version:   ${{ steps.psr.outputs.version }}"
+          echo "Tag:       ${{ steps.psr.outputs.tag }}"
 
   build:
     needs: version
-    if: github.ref == 'refs/heads/main'
+    if: |
+      github.ref == 'refs/heads/main' &&
+      steps.psr.outputs.released == 'true'
     environment: google-cloud
     runs-on: ubuntu-latest
     outputs:
@@ -98,7 +100,7 @@ jobs:
 
       - name: 🏗️ Build Docker image
         run: |
-          IMAGE_TAG="${{ vars.TURTLEQUANT1_GCLOUD_REGION }}-docker.pkg.dev/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}-gar-usea1-docker/turtle-quant-1:${{ steps.get_version.outputs.version }}"
+          IMAGE_TAG="${{ vars.TURTLEQUANT1_GCLOUD_REGION }}-docker.pkg.dev/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}-gar-usea1-docker/turtle-quant-1:${{ steps.psr.outputs.version }}"
           
           echo "Building image..."
           docker build -t $IMAGE_TAG --platform linux/amd64 -f Dockerfile .
