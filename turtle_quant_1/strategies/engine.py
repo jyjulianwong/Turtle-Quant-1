@@ -63,8 +63,9 @@ class _ExecutorManager:
     def __init__(self):
         self._executors = weakref.WeakSet()
         self._lock = threading.Lock()
+
         # Register cleanup on process exit
-        atexit.register(self._cleanup_all)
+        atexit.register(self._cleanup_executors)
 
         # Register signal handlers for graceful shutdown
         try:
@@ -83,9 +84,9 @@ class _ExecutorManager:
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""
-        self._cleanup_all()
+        self._cleanup_executors()
 
-    def _cleanup_all(self):
+    def _cleanup_executors(self):
         """Cleanup all managed executors."""
         try:
             with self._lock:
@@ -217,21 +218,7 @@ class StrategyEngine(BaseStrategyEngine):
                 f"Running strategies in parallel with {self._n_workers} workers..."
             )
 
-    def __enter__(self):
-        """Context manager entry."""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit with cleanup."""
-        self._cleanup_executor()
-
-    def __del__(self):
-        """Destructor to ensure executor cleanup before garbage collection."""
-        try:
-            self._cleanup_executor()
-        except Exception as e:
-            # Suppress any errors during destruction to avoid issues during interpreter shutdown
-            logger.error(f"Error during destruction: {e}")
+        atexit.register(self._cleanup_executor)
 
     def _cleanup_executor(self):
         """Clean up the executor instance."""

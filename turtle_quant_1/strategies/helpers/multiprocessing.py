@@ -1,3 +1,5 @@
+import atexit
+import contextlib
 import fcntl
 import hashlib
 import logging
@@ -18,16 +20,7 @@ CACHE_DIR_PATH = Path(os.path.join(tempfile.gettempdir(), "turtle-quant-1"))
 class ProcessSafeCache:
     """Process-safe cache using file-based storage with proper locking."""
 
-    # @classmethod
-    # def clear(cls):
-    #     """Delete the cache directory.
-
-    #     This cannot be done inside `__init__` because multiple ProcessSafeCache instances can be created across processes.
-    #     This should be called before the StrategyEngine fires off separate processes.
-    #     """
-    #     if CACHE_DIR_PATH.exists():
-    #         shutil.rmtree(CACHE_DIR_PATH)
-    #         logger.info(f"Deleted cache directory '{CACHE_DIR_PATH}'")
+    REFCOUNT_FILE = CACHE_DIR_PATH / "cache_refcount.txt"
 
     def __init__(self):
         """Initialize the cache with a directory for storage."""
@@ -39,6 +32,63 @@ class ProcessSafeCache:
         self.lock_file = self.cache_dir_path / "cache.lock"
         self._local_cache = {}  # In-memory cache for performance
         self._local_lock = threading.Lock()  # Thread-level locking
+
+        # Increment reference count and clear if first
+        with self._global_lock():
+            refcount = self._read_refcount()
+            if refcount == 0:
+                self._clear_cache_dir()
+                logger.debug(f"Cleared cache directory '{self.cache_dir_path}'")
+            self._write_refcount(refcount + 1)
+            logger.debug(f"Incremented refcount to {refcount + 1}")
+
+        atexit.register(self._cleanup)
+
+    def _cleanup(self):
+        try:
+            with self._global_lock():
+                refcount = self._read_refcount()
+                if refcount > 0:
+                    refcount -= 1
+                    self._write_refcount(refcount)
+                    logger.debug(f"Decremented refcount to {refcount}")
+                if refcount == 0:
+                    self._clear_cache_dir()
+                    logger.debug(f"Cleared cache directory '{self.cache_dir_path}'")
+        except Exception as e:
+            logger.error(f"Failed to clear cache: {e}")
+
+    # ---------------------------------
+    # Global lock context manager
+    # ---------------------------------
+
+    @contextlib.contextmanager
+    def _global_lock(self):
+        fd = self._acquire_file_lock()
+        try:
+            yield
+        finally:
+            self._release_file_lock(fd)
+
+    def _read_refcount(self):
+        if not self.REFCOUNT_FILE.exists():
+            return 0
+        try:
+            return int(self.REFCOUNT_FILE.read_text().strip())
+        except Exception:
+            return 0
+
+    def _write_refcount(self, count):
+        self.REFCOUNT_FILE.write_text(str(count))
+
+    def _clear_cache_dir(self):
+        for file in self.cache_dir_path.glob("cache_*.pkl"):
+            file.unlink()
+        logger.debug(f"Cleared cache in '{self.cache_dir_path}'")
+
+    # ---------------------------------
+    # File-based lock methods
+    # ---------------------------------
 
     def _get_cache_file_path(self, key: str) -> Path:
         """Get the file path for a cache key."""
@@ -68,6 +118,10 @@ class ProcessSafeCache:
             os.close(lock_fd)
         except (OSError, IOError):
             pass  # Ignore errors on release
+
+    # ---------------------------------
+    # API methods
+    # ---------------------------------
 
     def get(self, key: str):
         """Get a value from the cache."""
