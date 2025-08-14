@@ -18,12 +18,12 @@ from turtle_quant_1.config import (
     MAX_HISTORY_DAYS,
 )
 from turtle_quant_1.data_processing.processor import DataProcessor
-from turtle_quant_1.strategies.base import BaseStrategyEngine, SignalAction
+from turtle_quant_1.strategies.base import BaseStrategyEngine, Signal, SignalAction
 from turtle_quant_1.strategies.helpers.multiprocessing import ProcessSafeCache
 from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
@@ -222,7 +222,7 @@ class BacktestingEngine:
     def _execute_signal(
         self,
         symbol: str,
-        signal_action: SignalAction,
+        signal: Signal,
         price: float,
         timestamp: datetime,
     ) -> bool:
@@ -230,17 +230,28 @@ class BacktestingEngine:
 
         Args:
             symbol: Symbol to trade.
-            signal_action: The signal action (BUY, SELL, HOLD).
+            signal: The signal to execute.
             price: Current price.
             timestamp: Current timestamp. Timezone-aware.
 
         Returns:
             True if a transaction was executed, False otherwise.
         """
-        if signal_action == SignalAction.BUY:
+        if signal.action == SignalAction.BUY:
             # Buy 100 dollars worth of the symbol if we have enough cash
             units = 100.0 / price
-            success = self.portfolio.buy(symbol, units, price, timestamp)
+            success = self.portfolio.buy(
+                symbol=symbol,
+                quantity=units,
+                take_profit_value=signal.take_profit_value
+                if signal.take_profit_value is not None
+                else float("inf"),
+                stop_loss_value=signal.stop_loss_value
+                if signal.stop_loss_value is not None
+                else 0.0,
+                price=price,
+                timestamp=timestamp,
+            )
             if success:
                 logger.debug(f"BUY: {symbol} at ${price:.2f} on {timestamp}")
             else:
@@ -249,7 +260,7 @@ class BacktestingEngine:
                 )
             return success
 
-        elif signal_action == SignalAction.SELL:
+        elif signal.action == SignalAction.SELL:
             # Sell all holdings of this symbol
             success = self.portfolio.sell_holdings(symbol, price, timestamp)
             if success:
@@ -332,13 +343,18 @@ class BacktestingEngine:
 
                 # Execute signal
                 transaction_executed = self._execute_signal(
-                    symbol, signal.action, current_price, timestamp
+                    symbol, signal, current_price, timestamp
                 )
                 if transaction_executed:
                     total_transactions += 1
 
             # Record portfolio value for returns calculation (once per timestamp)
-            if current_prices:  # Only record if we have price data
+            if current_prices:
+                # Check if any take profits or stop losses should be triggered upon every tick
+                self.portfolio.check_take_profit_triggers(current_prices)
+                self.portfolio.check_stop_loss_triggers(current_prices)
+
+                # Record latest portfolio value
                 portfolio_value = self.portfolio.get_portfolio_value(current_prices)
                 self.portfolio_returns.append((timestamp, portfolio_value))
 

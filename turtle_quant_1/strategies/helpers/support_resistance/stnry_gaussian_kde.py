@@ -4,9 +4,8 @@ import numpy as np
 import pandas as pd
 from scipy import signal as scipy_signal
 from scipy import stats as scipy_stats
-from sklearn.preprocessing import MultiLabelBinarizer
 
-from turtle_quant_1.strategies.helpers.helpers import round_to_sig_fig
+from turtle_quant_1.strategies.helpers.helpers import calc_atr_value, round_to_sig_fig
 
 from .base import BaseSupResStrategy
 
@@ -25,55 +24,6 @@ class StnryGaussianKde(BaseSupResStrategy):
     def __init__(self):
         """Initialize the StnryGaussianKde strategy."""
         super().__init__()
-
-    def _calc_log_atr(
-        self, df: pd.DataFrame, period: int = 14, ema: bool = False
-    ) -> float:
-        """
-        Calculate the Logarithmic Average True Range (Log ATR) for an OHLCV DataFrame.
-
-        Parameters:
-        - df (pd.DataFrame): Must include columns 'High', 'Low', 'Close'.
-        - period (int): Lookback period for the ATR calculation.
-        - ema (bool): If True, use Exponential Moving Average. If False, use Simple Moving Average.
-
-        Returns:
-        - pd.Series: Log ATR values.
-        """
-        if not {"High", "Low", "Close"}.issubset(df.columns):
-            raise ValueError(
-                "DataFrame must contain 'High', 'Low', and 'Close' columns."
-            )
-
-        # pyrefly: ignore
-        log_high: pd.Series = np.log(df["High"])
-        # pyrefly: ignore
-        log_low: pd.Series = np.log(df["Low"])
-        # pyrefly: ignore
-        log_close: pd.Series = np.log(df["Close"])
-        # pyrefly: ignore
-        prev_log_close: pd.Series = log_close.shift(1)
-
-        # Calculate the log-based True Range
-        log_tr = np.maximum.reduce(
-            # pyrefly: ignore
-            [
-                (log_high - log_low).values,
-                (log_high - prev_log_close).abs().values,
-                (log_low - prev_log_close).abs().values,
-            ]
-        )
-
-        log_tr_series = pd.Series(log_tr, index=df.index)
-
-        # Compute ATR using SMA or EMA
-        if ema:
-            log_atr = log_tr_series.ewm(span=period, adjust=False).mean()
-        else:
-            log_atr = log_tr_series.rolling(window=period).mean()
-
-        latest_value = log_atr.iloc[-1]
-        return float(latest_value) if pd.notna(latest_value) else np.nan
 
     def _calc_kdf_values(
         self,
@@ -142,7 +92,7 @@ class StnryGaussianKde(BaseSupResStrategy):
             List of support and resistance levels for each timestamp in the dataset.
         """
         # Get log average true range
-        atr = self._calc_log_atr(data)
+        log_atr = calc_atr_value(data=data, return_log_space=True)
 
         level_values = [np.full(128, 0.0) for _ in range(len(data))]
         # TODO: Vectorize.
@@ -150,7 +100,9 @@ class StnryGaussianKde(BaseSupResStrategy):
             i_start = i - lookback
             log_prices = np.log(data.iloc[i_start + 1 : i + 1]["Close"].to_numpy())
             levels, peaks, props, price_range, price_pdf, weights = (
-                self._calc_kdf_values(log_prices, atr, first_w, atr_mult, prom_thresh)
+                self._calc_kdf_values(
+                    log_prices, log_atr, first_w, atr_mult, prom_thresh
+                )
             )
             # Round values to reduce number of unique values
             # This is needed for the MultiLabelBinarizer to work later on

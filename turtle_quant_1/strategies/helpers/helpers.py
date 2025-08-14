@@ -10,6 +10,62 @@ def round_to_sig_fig(x, p):
     return np.round(x * mags) / mags
 
 
+def calc_atr_value(
+    data: pd.DataFrame,
+    lookback: int = 14,
+    ema: bool = True,
+    return_log_space: bool = False,
+) -> float:
+    """
+    Calculate ATR (Average True Range) in either log-return or price space.
+
+    Args:
+        data: DataFrame with OHLCV data.
+        lookback: Lookback period for ATR calculation.
+        ema: If True, use exponential moving average; else simple moving average.
+        return_log_space: If True, compute ATR in log-return space.
+
+    Returns:
+        Latest ATR value (NaN if insufficient data).
+    """
+    if not {"High", "Low", "Close"}.issubset(data.columns):
+        raise ValueError("DataFrame must contain 'High', 'Low', and 'Close' columns.")
+
+    high = data["High"]
+    low = data["Low"]
+    close = data["Close"]
+
+    if return_log_space:
+        # pyrefly: ignore
+        high: pd.Series = np.log(high)
+        # pyrefly: ignore
+        low: pd.Series = np.log(low)
+        # pyrefly: ignore
+        close: pd.Series = np.log(close)
+
+    prev_close = close.shift(1)
+
+    tr = np.maximum.reduce(
+        # pyrefly: ignore
+        [
+            (high - low).abs().values,
+            (high - prev_close).abs().values,
+            (low - prev_close).abs().values,
+        ]
+    )
+
+    tr_series = pd.Series(tr, index=data.index)
+
+    # Smoothing: EMA or SMA
+    if ema:
+        atr = tr_series.ewm(span=lookback, adjust=False).mean()
+    else:
+        atr = tr_series.rolling(window=lookback).mean()
+
+    latest_value = atr.iloc[-1]
+    return float(latest_value) if pd.notna(latest_value) else np.nan
+
+
 def get_wick_direction(row: pd.Series) -> int:
     """Determine the direction of the candlestick wick for a single row of a DataFrame.
 

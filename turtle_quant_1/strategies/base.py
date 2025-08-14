@@ -2,12 +2,12 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field
 from sklearn.preprocessing import normalize
-import numpy as np
 
 
 class SignalAction(Enum):
@@ -48,6 +48,14 @@ class Signal(BaseModel):
     )  # pyrefly: ignore[no-matching-overload]
     action: SignalAction = Field(
         ..., description="The trading action, i.e. BUY, HOLD, or SELL"
+    )
+    take_profit_value: Optional[float] = Field(
+        default=None,
+        description="The take profit value, i.e. the price at which to sell",
+    )
+    stop_loss_value: Optional[float] = Field(
+        default=None,
+        description="The stop loss value, i.e. the price at which to sell",
     )
 
 

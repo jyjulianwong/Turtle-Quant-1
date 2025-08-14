@@ -21,6 +21,7 @@ from turtle_quant_1.strategies.base import (
     Signal,
     SignalAction,
 )
+from turtle_quant_1.strategies.helpers.helpers import calc_atr_value
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -351,6 +352,29 @@ class StrategyEngine(BaseStrategyEngine):
 
         return total_score
 
+    def calc_take_profit_value(self, data: pd.DataFrame, symbol: str) -> float:
+        """Calculate the take profit value for a given symbol.
+
+        Args:
+            data: DataFrame with OHLCV data.
+            symbol: The symbol being analyzed.
+        """
+        raise NotImplementedError(
+            "Take profit value calculation is not implemented yet"
+        )
+
+    def calc_stop_loss_value(self, data: pd.DataFrame, symbol: str) -> float:
+        """Calculate the stop loss value for a given symbol.
+
+        Args:
+            data: DataFrame with OHLCV data.
+            symbol: The symbol being analyzed.
+        """
+        curr_price = data.iloc[-1]["Close"]
+        k = 2  # Multiplier
+        atr = calc_atr_value(data=data, return_log_space=False)
+        return curr_price - k * atr
+
     def generate_signal(self, data: pd.DataFrame, symbol: str) -> Signal:
         """Generate a trading signal by aggregating all strategies.
 
@@ -387,6 +411,9 @@ class StrategyEngine(BaseStrategyEngine):
             weights=strategy_weights,
             action=action,
             score=aggregated_score,
+            stop_loss_value=self.calc_stop_loss_value(data, symbol)
+            if action == SignalAction.BUY
+            else None,
         )
 
     def get_breakdown(self, data: pd.DataFrame, symbol: str) -> Dict[str, float]:
