@@ -112,6 +112,19 @@ MARKET_HOURS = {
 
 # Mapping of symbols to their corresponding market
 SYMBOL_MARKETS = {
+    # US index
+    "SPY": "NYSE",
+    # Gold
+    "GLD": "NYSE",
+    # Energy / Oil
+    "XOM": "NYSE",
+    "CVX": "NYSE",
+    # Healthcare
+    "JNJ": "NYSE",
+    # Defence
+    "BA": "NYSE",
+    "LMT": "NYSE",
+    # Technology
     "MSFT": "NYSE",
     "GOOG": "NYSE",
 }
@@ -123,8 +136,28 @@ BACKTESTING_MAX_LOOKBACK_DAYS = 365
 # (700 - 365)
 BACKTESTING_MAX_LOOKFORWARD_DAYS = 335
 # The symbols to use for backtesting
-BACKTESTING_SYMBOLS = ["MSFT", "GOOG"]
+BACKTESTING_SYMBOLS = [
+    "SPY",
+    "GLD",
+    "XOM",
+    "CVX",
+    "JNJ",
+    "BA",
+    "LMT",
+    "MSFT",
+    "GOOG",
+]
 
 # Live mode constants
 # The symbols to use for live mode
-LIVE_SYMBOLS = ["MSFT", "GOOG"]
+LIVE_SYMBOLS = [
+    "SPY",
+    "GLD",
+    "XOM",
+    "CVX",
+    "JNJ",
+    "BA",
+    "LMT",
+    "MSFT",
+    "GOOG",
+]
