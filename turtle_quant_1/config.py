@@ -39,6 +39,7 @@ PACKAGE_ROOT = Path(__file__).parent
 
 # Performance
 # The maximum number of workers to use for parallel processing
+# NOTE: Recommended: Number of CPU cores - 1
 MAX_WORKERS = int(os.getenv("TURTLEQUANT1_MAX_WORKERS", 0))
 
 # Constants

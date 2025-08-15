@@ -1,4 +1,4 @@
-name: Test, Build and Deploy
+name: Deploy (main Branch)
 
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 jobs:
-  test:
+  unit_test:
     runs-on: ubuntu-latest
     steps:
       - name: ⚙️ Set up repository
@@ -36,13 +36,13 @@ jobs:
         run: |
           uv run pytest tests/ -v
   
-  version:
-    needs: test
+  version_bump:
+    needs: unit_test
     runs-on: ubuntu-latest
     outputs:
-      released: ${{ steps.psr.outputs.released }}
       version: ${{ steps.psr.outputs.version }}
       tag: ${{ steps.psr.outputs.tag }}
+      released: ${{ steps.psr.outputs.released }}
     permissions:
       contents: write
       packages: write
@@ -58,28 +58,23 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
-      - name: 📦 Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install uv
-          uv sync --group dev
-
-      - id: psr
+      - name: 📦 Run Semantic Release
+        id: psr
         uses: python-semantic-release/python-semantic-release@v10
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Show computed version/tag
         run: |
-          echo "Released:  ${{ steps.psr.outputs.released }}"
           echo "Version:   ${{ steps.psr.outputs.version }}"
           echo "Tag:       ${{ steps.psr.outputs.tag }}"
+          echo "Released:  ${{ steps.psr.outputs.released }}"
 
   build:
-    needs: version
+    needs: version_bump
     if: |
       github.ref == 'refs/heads/main' &&
-      ${{ needs.version.outputs.released }} == 'true'
+      ${{ needs.version_bump.outputs.released }} == 'true'
     environment: google-cloud
     runs-on: ubuntu-latest
     outputs:
@@ -104,7 +99,7 @@ jobs:
 
       - name: 🏗️ Build Docker image
         run: |
-          IMAGE_TAG="${{ vars.TURTLEQUANT1_GCLOUD_REGION }}-docker.pkg.dev/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}-gar-usea1-docker/turtle-quant-1:${{ needs.version.outputs.version }}"
+          IMAGE_TAG="${{ vars.TURTLEQUANT1_GCLOUD_REGION }}-docker.pkg.dev/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}-gar-usea1-docker/turtle-quant-1:${{ needs.version_bump.outputs.version }}"
           
           echo "Building image..."
           docker build -t $IMAGE_TAG --platform linux/amd64 -f Dockerfile .
