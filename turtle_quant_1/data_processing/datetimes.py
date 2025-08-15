@@ -1,11 +1,11 @@
+import math
 from datetime import datetime, timedelta
 from typing import List
 
 import holidays
-import math
 import pytz
 
-from turtle_quant_1.config import MARKET_HOURS, SYMBOL_MARKETS, MAX_HISTORY_DAYS
+from turtle_quant_1.config import MARKET_HOURS, MAX_HISTORY_DAYS, SYMBOL_MARKETS
 
 
 def get_symbol_market_hours(symbol: str) -> dict:
@@ -56,10 +56,31 @@ def get_symbol_timezone(symbol: str) -> str:
     return get_symbol_market_hours(symbol)["timezone"]
 
 
+def get_expected_market_hours_bounds(
+    symbol: str, start_date: datetime, end_date: datetime
+) -> tuple[datetime, datetime]:
+    """Get the expected market hours boundaries for a symbol between start and end dates.
+
+    TODO: Cache.
+
+    Args:
+        symbol: Stock symbol
+        start_date: Timezone-aware start date
+        end_date: Timezone-aware end date
+
+    Returns:
+        Tuple of timezone-aware datetime objects representing the start and end of the expected market hours
+    """
+    expected_datetimes = get_expected_market_hours_index(symbol, start_date, end_date)
+    return expected_datetimes[0], expected_datetimes[-1]
+
+
 def get_expected_market_hours_index(
     symbol: str, start_date: datetime, end_date: datetime
 ) -> List[datetime]:
     """Generate a list of all expected market hours for a symbol between start and end dates.
+
+    TODO: Cache.
 
     Args:
         symbol: Stock symbol to get market hours for

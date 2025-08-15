@@ -8,20 +8,21 @@ import pandas as pd
 import pytz
 
 from turtle_quant_1.config import (
+    HOST_TIMEZONE,
     LIVE_SYMBOLS,
     MAX_CANDLE_GAPS_TO_FILL,
     MAX_HISTORY_DAYS,
-    HOST_TIMEZONE,
 )
+from turtle_quant_1.data_processing.adapters.yfinance_fetcher import YFinanceDataFetcher
 from turtle_quant_1.data_processing.base import (
     BaseDataFetcher,
     BaseDataMaintainer,
 )
 from turtle_quant_1.data_processing.datetimes import (
+    get_expected_market_hours_bounds,
     get_expected_market_hours_index,
     get_symbol_timezone,
 )
-from turtle_quant_1.data_processing.adapters.yfinance_fetcher import YFinanceDataFetcher
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -241,6 +242,20 @@ class DataMaintainer(BaseDataMaintainer):
 
         return existing_data
 
+    def _delete_outdated_data(self, symbol: str, data: pd.DataFrame) -> pd.DataFrame:
+        """Delete outdated data for a symbol."""
+        raw_end_date = datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
+        raw_start_date = raw_end_date - timedelta(days=MAX_HISTORY_DAYS)
+
+        start_date, end_date = get_expected_market_hours_bounds(
+            symbol, raw_start_date, raw_end_date
+        )
+
+        # Delete data outside of the expected market hours bounds
+        data = data[(data["datetime"] >= start_date) & (data["datetime"] <= end_date)]
+
+        return data
+
     def impute_data(
         self,
         symbol: str,
@@ -261,7 +276,7 @@ class DataMaintainer(BaseDataMaintainer):
         start_date = end_date - timedelta(days=MAX_HISTORY_DAYS)
 
         logger.info(
-            f"Ensuring continuous data for {symbol} from {start_date} to {end_date}"
+            f"Ensuring continuous data for {symbol} from {start_date} to {end_date}..."
         )
 
         # Find gaps in the data
@@ -275,5 +290,12 @@ class DataMaintainer(BaseDataMaintainer):
             data = self._fill_data_gaps(symbol, data, gaps)
         else:
             logger.info(f"No gaps found in data for {symbol}")
+
+        # Delete outdated data as a "cron job"
+        if datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE)).day == 28:
+            data = self._delete_outdated_data(symbol, data)
+            logger.info(
+                f"Deleted outdated data for {symbol}. Remaining dates: {data['datetime'].min()} to {data['datetime'].max()}"
+            )
 
         return data
