@@ -145,8 +145,10 @@ def convert_to_daily_data(data: pd.DataFrame) -> pd.DataFrame:
     # Extract date from datetime for grouping
     data["date"] = data["datetime"].dt.date
 
+    daily_groups = data.groupby(pd.Grouper(key="date"))
+
     # Use pandas vectorized aggregation - much more efficient than loops
-    daily_df = data.groupby("date").agg(
+    daily_df = daily_groups.agg(
         {
             "datetime": "last",  # Last timestamp of the day, preserving timezone data
             "Open": "first",  # First open of the day
@@ -157,15 +159,10 @@ def convert_to_daily_data(data: pd.DataFrame) -> pd.DataFrame:
         }
     )
 
-    # Drop the date column as we now have the full timestamp
-    daily_df = daily_df.drop("date", axis=1)
-
     # Preserve original indices by using the last index of each group
     # Get the last index for each date group (avoiding deprecated behavior)
     # pyrefly: ignore
-    last_indices = data.groupby("date", group_keys=False).apply(
-        lambda x: x.index[-1], include_groups=False
-    )
+    last_indices = daily_groups.apply(lambda x: x.index[-1], include_groups=False)
     daily_df.index = last_indices.values
 
     # Reorder columns to match expected format

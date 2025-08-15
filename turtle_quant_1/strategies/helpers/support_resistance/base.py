@@ -256,7 +256,7 @@ class SupResIndicator:
         data: pd.DataFrame,
         timestamp: pd.Timestamp,
         symbol: str,
-        min_consensus: float = 0.5,
+        min_consensus: float = 0.2,
     ) -> bool:
         """Check if the current price is in a support or resistance zone.
 
@@ -345,7 +345,7 @@ class SupResIndicator:
         self,
         data: pd.DataFrame,
         symbol: str,
-        min_consensus: float = 0.5,
+        min_consensus: float = 0.2,
     ) -> pd.Series:
         """Check if prices are in support or resistance zones for all timestamps (vectorized).
 
@@ -412,7 +412,12 @@ class SupResIndicator:
 
         # Return boolean series based on consensus threshold
         result = consensus_ratios >= min_consensus
-        return pd.Series(result, index=data.index)
+        return pd.Series(
+            # Map result values to each datetime in data
+            # pyrefly: ignore
+            data=data["datetime"].map(result),
+            index=data.index,
+        )
 
 
 class BaseSupResStrategy(ABC):

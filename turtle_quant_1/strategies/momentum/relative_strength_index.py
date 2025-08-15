@@ -5,12 +5,13 @@ import pandas as pd
 from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS, CANDLE_UNIT
 from turtle_quant_1.strategies.base import BaseStrategy
 from turtle_quant_1.strategies.helpers.candle_units import convert_units
+from turtle_quant_1.strategies.helpers.helpers import convert_to_daily_data
 
 
 class RelativeStrengthIndex(BaseStrategy):
     """A strategy that uses the RSI to generate buy and sell signals."""
 
-    def __init__(self, lookback_candles: int = 60):
+    def __init__(self, lookback_candles: int = 14):
         """Initialize the RSI strategy.
 
         Args:
@@ -41,8 +42,9 @@ class RelativeStrengthIndex(BaseStrategy):
         self.validate_data(data)
 
         data_sorted = data.sort_values("datetime").copy()
+        data_resampled = convert_to_daily_data(data_sorted)
 
-        delta = data_sorted["Close"].diff()
+        delta = data_resampled["Close"].diff()
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
 
@@ -51,6 +53,9 @@ class RelativeStrengthIndex(BaseStrategy):
 
         rs = mean_gain / (mean_loss + 1e-9)  # Prevent division by zero
         rsi = 100 - (100 / (1 + rs))  # The standard RSI formula
+
+        rsi = rsi.reindex(data_sorted.index)
+        rsi = rsi.bfill().ffill()
 
         return pd.Series(
             data=((50 - rsi) / 50).clip(-1, 1).fillna(0).values,  # Rescale to -1 to +1
