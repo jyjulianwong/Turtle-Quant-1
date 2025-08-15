@@ -146,19 +146,15 @@ def convert_to_daily_data(data: pd.DataFrame) -> pd.DataFrame:
     data["date"] = data["datetime"].dt.date
 
     # Use pandas vectorized aggregation - much more efficient than loops
-    daily_df = (
-        data.groupby("date")
-        .agg(
-            {
-                "datetime": "last",  # Last timestamp of the day, preserving timezone data
-                "Open": "first",  # First open of the day
-                "High": "max",  # Highest high of the day
-                "Low": "min",  # Lowest low of the day
-                "Close": "last",  # Last close of the day
-                "Volume": "sum",  # Total volume of the day
-            }
-        )
-        .reset_index()
+    daily_df = data.groupby("date").agg(
+        {
+            "datetime": "last",  # Last timestamp of the day, preserving timezone data
+            "Open": "first",  # First open of the day
+            "High": "max",  # Highest high of the day
+            "Low": "min",  # Lowest low of the day
+            "Close": "last",  # Last close of the day
+            "Volume": "sum",  # Total volume of the day
+        }
     )
 
     # Drop the date column as we now have the full timestamp
@@ -208,23 +204,20 @@ def convert_to_weekly_data(data: pd.DataFrame) -> pd.DataFrame:
     data = data.copy()
     data["datetime"] = pd.to_datetime(data["datetime"])
 
-    # Create weekly grouping key using week ending (Friday as end of working week)
-    # Use Grouper to avoid timezone warnings when grouping by week
-    data = data.set_index("datetime")
-
     # Group by week ending on Friday, preserving timezone info
-    weekly_groups = data.groupby(pd.Grouper(freq="W-FRI"))
+    weekly_groups = data.groupby(pd.Grouper(key="datetime", freq="W-FRI"))
 
     # Use pandas vectorized aggregation - much more efficient than loops
     weekly_df = weekly_groups.agg(
         {
+            "datetime": "last",  # Last timestamp of the week, preserving timezone data
             "Open": "first",  # First open of the week
             "High": "max",  # Highest high of the week
             "Low": "min",  # Lowest low of the week
             "Close": "last",  # Last close of the week
             "Volume": "sum",  # Total volume of the week
         }
-    ).reset_index()
+    )
 
     # Rename the datetime index back to datetime column
     weekly_df = weekly_df.rename(columns={"datetime": "datetime"})

@@ -2,8 +2,6 @@
 
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -475,8 +473,8 @@ class BaseSupResStrategy(ABC):
 
         Returns:
             DataFrame with support and resistance levels.
-            The columns are: ['datetime', 'level_values'].
-            The 'level_values' column contains fixed-size NumPy arrays (128 elements) with support and resistance levels.
+            The columns are: ['datetime_beg', 'datetime_end', 'level_values'].
+            The 'level_values' column contains the list of support and resistance levels that apply to that time range.
         """
         if (
             "datetime" not in levels_df.columns
@@ -510,7 +508,8 @@ class BaseSupResStrategy(ABC):
                 max_dt = result.loc[nonzero_mask, "datetime"].max()
                 result_rows.append(
                     {
-                        "datetime": min_dt,
+                        "datetime_beg": min_dt,
+                        "datetime_end": max_dt,
                         "level_values": [col],
                     }
                 )
