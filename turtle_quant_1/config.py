@@ -137,14 +137,14 @@ BACKTESTING_MAX_LOOKBACK_DAYS = 365
 BACKTESTING_MAX_LOOKFORWARD_DAYS = 335
 # The symbols to use for backtesting
 BACKTESTING_SYMBOLS = [
-    # "SPY",
-    # "GLD",
-    # "XOM",
-    # "CVX",
-    # "JNJ",
-    # "BA",
-    # "LMT",
-    # "MSFT",
+    "SPY",
+    "GLD",
+    "XOM",
+    "CVX",
+    "JNJ",
+    "BA",
+    "LMT",
+    "MSFT",
     "GOOG",
 ]
 

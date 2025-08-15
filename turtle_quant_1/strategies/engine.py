@@ -162,19 +162,15 @@ class StrategyEngine(BaseStrategyEngine):
 
         return cls(
             strategies=strategies,
-            weights=config["weights"] if "weights" in config else [],
-            buy_unit_threshold=config["buy_unit_threshold"]
-            if "buy_unit_threshold" in config
-            else 0.3,
-            sell_threshold=config["sell_threshold"]
-            if "sell_threshold" in config
-            else -0.3,
+            weights=config.get("weights", {}),
+            buy_unit_threshold=config.get("buy_unit_threshold", 0.3),
+            sell_threshold=config.get("sell_threshold", -0.3),
         )
 
     def __init__(
         self,
         strategies: List[BaseStrategy],
-        weights: List[float] = [],
+        weights: Dict[str, float] = {},
         buy_unit_threshold: float = 0.3,
         sell_threshold: float = -0.3,
         n_workers: int = MAX_WORKERS,
@@ -183,7 +179,7 @@ class StrategyEngine(BaseStrategyEngine):
 
         Args:
             strategies: List of strategies to aggregate.
-            weights: Optional list of weights for each strategy. If None, equal weights are used.
+            weights: Optional dict mapping strategy class names to weights. If empty, equal weights are used.
             buy_unit_threshold: Minimum aggregated score to generate a BUY signal (default: 0.3).
             sell_threshold: Maximum aggregated score to generate a SELL signal (default: -0.3).
             n_workers: Maximum number of worker processes for parallel execution (default: MAX_WORKERS).
@@ -309,9 +305,9 @@ class StrategyEngine(BaseStrategyEngine):
         strategy_scores = {}
 
         if self._n_workers == 0:
-            for (strategy_type, strategy_params), weight in zip(
-                self._strategy_init_info, self.weights
-            ):
+            for strategy_type, strategy_params in self._strategy_init_info:
+                strategy_name = strategy_type.__name__
+                weight = self.weights[strategy_name]
                 strategy_name, score, weighted_score = _run_strategy_process(
                     strategy_type, strategy_params, weight, data, symbol
                 )
@@ -323,9 +319,9 @@ class StrategyEngine(BaseStrategyEngine):
 
             # Submit tasks to the process pool
             future_to_strategy = {}
-            for (strategy_type, strategy_params), weight in zip(
-                self._strategy_init_info, self.weights
-            ):
+            for strategy_type, strategy_params in self._strategy_init_info:
+                strategy_name = strategy_type.__name__
+                weight = self.weights[strategy_name]
                 future = executor.submit(
                     _run_strategy_process,
                     strategy_type,
@@ -334,7 +330,7 @@ class StrategyEngine(BaseStrategyEngine):
                     data,
                     symbol,
                 )
-                future_to_strategy[future] = strategy_type.__name__
+                future_to_strategy[future] = strategy_name
 
             # Process completed tasks
             for future in as_completed(future_to_strategy):
@@ -401,19 +397,11 @@ class StrategyEngine(BaseStrategyEngine):
         else:
             action = SignalAction.HOLD
 
-        # Get strategy names, scores, and weights
-        strategy_names = [info[0].__name__ for info in self._strategy_init_info]
-        strategy_scores = self._last_scores
-        strategy_weights = {
-            info[0].__name__: weight
-            for info, weight in zip(self._strategy_init_info, self.weights)
-        }
-
         # Create and return Signal object
         return Signal(
-            strategies=strategy_names,
-            scores=strategy_scores,
-            weights=strategy_weights,
+            strategies=[info[0].__name__ for info in self._strategy_init_info],
+            scores=self._last_scores,
+            weights=self.weights,
             action=action,
             score=aggregated_score,
             stop_loss_value=self.calc_stop_loss_value(data, symbol)

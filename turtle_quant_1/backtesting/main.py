@@ -11,16 +11,16 @@ from turtle_quant_1.backtesting.runner import (
     BacktestingTestCase,
     BacktestingTestRunner,
 )
+from turtle_quant_1.strategies.candlesticks import (
+    EngulfingPattern,
+    MomentumPattern,
+    MultiplePattern,
+)
 from turtle_quant_1.strategies.engine import StrategyEngine
+from turtle_quant_1.strategies.mean_reversion import BollingerBand, RsiSupResDivergence
 from turtle_quant_1.strategies.momentum import (
     MovingAverageCrossover,
     RelativeStrengthIndex,
-)
-from turtle_quant_1.strategies.mean_reversion import BollingerBand, RsiSupResDivergence
-from turtle_quant_1.strategies.candlesticks import (
-    EngulfingPattern,
-    MultiplePattern,
-    MomentumPattern,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -41,17 +41,19 @@ def create_test_cases() -> List[BacktestingTestCase]:
     momentum_pattern = MomentumPattern()
 
     # # Test Case 1: Zero capital test
+    # strategies = [
+    #     moving_average_crossover,
+    #     relative_strength_index,
+    #     bollinger_band,
+    #     rsi_sup_res_divergence,
+    #     engulfing_pattern,
+    #     multiple_pattern,
+    #     momentum_pattern,
+    # ]
+    #
     # strategy_engine = StrategyEngine(
-    #     # TODO: Clean up.
-    #     strategies=[
-    #         moving_average_crossover,
-    #         relative_strength_index,
-    #         bollinger_band,
-    #         rsi_sup_res_divergence,
-    #         engulfing_pattern,
-    #         multiple_pattern,
-    #         momentum_pattern,
-    #     ],
+    #     strategies=strategies,
+    #     weights={},  # This will use equal weights for all strategies
     #     buy_unit_threshold=0.2,
     #     sell_threshold=-0.2,
     # )
@@ -69,17 +71,21 @@ def create_test_cases() -> List[BacktestingTestCase]:
     # )
 
     # Test Case 2: Standard backtesting with moderate capital
+    strategies = [
+        moving_average_crossover,
+        relative_strength_index,
+        bollinger_band,
+        rsi_sup_res_divergence,
+        engulfing_pattern,
+        multiple_pattern,
+        momentum_pattern,
+    ]
+
+    weights = {}
+
     strategy_engine = StrategyEngine(
-        # TODO: Clean up.
-        strategies=[
-            moving_average_crossover,
-            relative_strength_index,
-            bollinger_band,
-            rsi_sup_res_divergence,
-            engulfing_pattern,
-            multiple_pattern,
-            momentum_pattern,
-        ],
+        strategies=strategies,
+        weights=weights,
         buy_unit_threshold=0.2,
         sell_threshold=-0.2,
     )
