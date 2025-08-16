@@ -36,6 +36,9 @@ jobs:
           echo "Loading repo secrets..."
           SECRETS_JSON='${{ toJson(secrets) }}'
           echo "$SECRETS_JSON" | jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' >> $GITHUB_ENV
+      
+      - name: Check environment
+        run: env | sort
 
       # Install all dependencies (including pdoc)
       # Build the documentation into docs/.
