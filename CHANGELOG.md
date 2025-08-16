@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.1.1 (2025-08-16)
+
+### Bug Fixes
+
+- Fixed hyperparameter tuning module runtime errors
+  ([#2](https://github.com/jyjulianwong/Turtle-Quant-1/pull/2),
+  [`b62e743`](https://github.com/jyjulianwong/Turtle-Quant-1/commit/b62e7430cad9362e7b66eee4dc9e2ec136ad2758))
+
+
 ## v1.1.0 (2025-08-16)
 
 ### Features
