@@ -4,7 +4,7 @@ name: Docs (main Branch)
 on:
   push:
     branches:
-      - main
+      - dev
     # Alternative: only build for tags.
     # tags:
     #   - '*'
