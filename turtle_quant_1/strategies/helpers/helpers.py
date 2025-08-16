@@ -2,12 +2,21 @@ import numpy as np
 import pandas as pd
 
 
-def round_to_sig_fig(x, p):
-    """Round a list of numbers to a specified number of significant figures."""
+def round_to_sig_fig(x: list[float], p: int) -> list[float]:
+    """Round a list of numbers to a specified number of significant figures.
+
+    Args:
+        x: The list of numbers to round.
+        p: The number of significant figures to round to.
+
+    Returns:
+        The rounded list of numbers.
+    """
     x = np.asarray(x, dtype=float)
-    x_positive = np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1))
-    mags = 10 ** (p - 1 - np.floor(np.log10(x_positive)))
-    return np.round(x * mags) / mags
+    x_pos = np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1))
+    x_mag = 10 ** (p - 1 - np.floor(np.log10(x_pos)))
+    result = np.round(x * x_mag) / x_mag
+    return result.tolist()
 
 
 def calc_atr_value(
@@ -145,31 +154,24 @@ def convert_to_daily_data(data: pd.DataFrame) -> pd.DataFrame:
     # Extract date from datetime for grouping
     data["date"] = data["datetime"].dt.date
 
-    # Use pandas vectorized aggregation - much more efficient than loops
-    daily_df = (
-        data.groupby("date")
-        .agg(
-            {
-                "datetime": "last",  # Last timestamp of the day, preserving timezone data
-                "Open": "first",  # First open of the day
-                "High": "max",  # Highest high of the day
-                "Low": "min",  # Lowest low of the day
-                "Close": "last",  # Last close of the day
-                "Volume": "sum",  # Total volume of the day
-            }
-        )
-        .reset_index()
-    )
+    daily_groups = data.groupby(pd.Grouper(key="date"))
 
-    # Drop the date column as we now have the full timestamp
-    daily_df = daily_df.drop("date", axis=1)
+    # Use pandas vectorized aggregation - much more efficient than loops
+    daily_df = daily_groups.agg(
+        {
+            "datetime": "last",  # Last timestamp of the day, preserving timezone data
+            "Open": "first",  # First open of the day
+            "High": "max",  # Highest high of the day
+            "Low": "min",  # Lowest low of the day
+            "Close": "last",  # Last close of the day
+            "Volume": "sum",  # Total volume of the day
+        }
+    )
 
     # Preserve original indices by using the last index of each group
     # Get the last index for each date group (avoiding deprecated behavior)
     # pyrefly: ignore
-    last_indices = data.groupby("date", group_keys=False).apply(
-        lambda x: x.index[-1], include_groups=False
-    )
+    last_indices = daily_groups.apply(lambda x: x.index[-1], include_groups=False)
     daily_df.index = last_indices.values
 
     # Reorder columns to match expected format
@@ -208,23 +210,20 @@ def convert_to_weekly_data(data: pd.DataFrame) -> pd.DataFrame:
     data = data.copy()
     data["datetime"] = pd.to_datetime(data["datetime"])
 
-    # Create weekly grouping key using week ending (Friday as end of working week)
-    # Use Grouper to avoid timezone warnings when grouping by week
-    data = data.set_index("datetime")
-
     # Group by week ending on Friday, preserving timezone info
-    weekly_groups = data.groupby(pd.Grouper(freq="W-FRI"))
+    weekly_groups = data.groupby(pd.Grouper(key="datetime", freq="W-FRI"))
 
     # Use pandas vectorized aggregation - much more efficient than loops
     weekly_df = weekly_groups.agg(
         {
+            "datetime": "last",  # Last timestamp of the week, preserving timezone data
             "Open": "first",  # First open of the week
             "High": "max",  # Highest high of the week
             "Low": "min",  # Lowest low of the week
             "Close": "last",  # Last close of the week
             "Volume": "sum",  # Total volume of the week
         }
-    ).reset_index()
+    )
 
     # Rename the datetime index back to datetime column
     weekly_df = weekly_df.rename(columns={"datetime": "datetime"})

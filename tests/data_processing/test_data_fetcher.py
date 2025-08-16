@@ -1,6 +1,5 @@
 """Unit tests for data fetchers."""
 
-from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -10,18 +9,6 @@ from turtle_quant_1.data_processing.adapters.alpha_vantage_fetcher import (
     AlphaVantageDataFetcher,
 )
 from turtle_quant_1.data_processing.adapters.yfinance_fetcher import YFinanceDataFetcher
-
-
-@pytest.fixture
-def symbols():
-    """Fixture for test symbols."""
-    return ["AAPL", "GOOGL"]
-
-
-@pytest.fixture
-def dates():
-    """Fixture for test dates."""
-    return {"start": datetime(2024, 1, 1), "end": datetime(2024, 1, 2)}
 
 
 @pytest.fixture

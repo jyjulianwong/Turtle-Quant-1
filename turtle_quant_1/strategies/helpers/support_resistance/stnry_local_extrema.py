@@ -3,7 +3,6 @@
 import numpy as np
 import pandas as pd
 import scipy.signal as sp
-from sklearn.preprocessing import MultiLabelBinarizer
 
 from turtle_quant_1.strategies.helpers.helpers import round_to_sig_fig
 
@@ -176,7 +175,7 @@ class StnryLocalExtrema(BaseSupResStrategy):
     def _calc_sup_res_levels(
         self,
         data: pd.DataFrame,
-        lookback: int = 12,  # TODO: Respect CANDLE_UNIT.
+        lookback: int = 14,  # NOTE: This is a magic number. Lookback is agnostic to CANDLE_UNIT.
     ) -> list[np.ndarray]:
         level_values = [np.full(128, 0.0) for _ in range(len(data))]
         # TODO: Vectorize.

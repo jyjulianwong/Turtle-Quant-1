@@ -7,17 +7,18 @@ from typing import List, Optional
 import pandas as pd
 
 from turtle_quant_1.config import LIVE_SYMBOLS
+from turtle_quant_1.data_processing.adapters.gcs_storage_adapter import (
+    GCSDataStorageAdapter,
+)
+from turtle_quant_1.data_processing.adapters.yfinance_fetcher import YFinanceDataFetcher
 from turtle_quant_1.data_processing.base import (
     BaseDataFetcher,
     BaseDataMaintainer,
     BaseDataProcessor,
     BaseDataStorageAdapter,
 )
-from turtle_quant_1.data_processing.adapters.gcs_storage_adapter import (
-    GCSDataStorageAdapter,
-)
+from turtle_quant_1.data_processing.datetimes import get_expected_market_hours_bounds
 from turtle_quant_1.data_processing.maintainer import DataMaintainer
-from turtle_quant_1.data_processing.adapters.yfinance_fetcher import YFinanceDataFetcher
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -65,6 +66,8 @@ class DataProcessor(BaseDataProcessor):
     ) -> pd.DataFrame:
         """Load data for a symbol.
 
+        Auto-corrects start and end dates to be at the bounds of market hours for those days.
+
         Args:
             symbol: Symbol to load data for.
             start_date: Timezone-aware start date to fetch data from.
@@ -77,10 +80,14 @@ class DataProcessor(BaseDataProcessor):
         if DANGER_CLEAR_CACHE:
             self.data_cache.pop(symbol, None)
         if DANGER_CLEAR_STORAGE:
-            self.storage.delete_data(symbol)
+            self.storage.delete_ohlcv_data(symbol)
             self.data_cache.pop(symbol, None)
 
         is_data_updated = False
+
+        _start_date, _end_date = get_expected_market_hours_bounds(
+            symbol, start_date, end_date
+        )
 
         if symbol in self.data_cache:
             df = self.data_cache[symbol]
@@ -88,7 +95,7 @@ class DataProcessor(BaseDataProcessor):
             logger.warning(
                 f"No data found for {symbol} in cache. Fetching from {self.storage}..."
             )
-            df = self.storage.load_ohlcv(
+            df = self.storage.load_ohlcv_data(
                 symbol=symbol,
                 start_date=None,  # TODO: Work out why.
                 end_date=None,  # TODO: Work out why.
@@ -101,13 +108,13 @@ class DataProcessor(BaseDataProcessor):
             # TODO: Respect CANDLE_UNIT.
             df = self.fetcher.fetch_hourly_ohlcv(
                 symbol=symbol,
-                start_date=start_date,
-                end_date=end_date,
+                start_date=_start_date,
+                end_date=_end_date,
             )
             is_data_updated = True
 
         if impute_data:
-            _df = self.maintainer.impute_data(symbol, df, end_date)
+            _df = self.maintainer.impute_data(symbol, df, _end_date)
             if not _df.index.equals(df.index):
                 is_data_updated = True
             df = _df
@@ -129,4 +136,4 @@ class DataProcessor(BaseDataProcessor):
             symbol: Symbol to save data for.
             data: DataFrame with data.
         """
-        self.storage.save_ohlcv(symbol=symbol, data=data)
+        self.storage.save_ohlcv_data(symbol=symbol, data=data)

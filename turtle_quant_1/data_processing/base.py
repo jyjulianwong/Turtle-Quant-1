@@ -11,7 +11,7 @@ class BaseDataStorageAdapter(ABC):
     """Base class for data storage."""
 
     @abstractmethod
-    def save_ohlcv(
+    def save_ohlcv_data(
         self,
         symbol: str,
         data: pd.DataFrame,
@@ -25,7 +25,7 @@ class BaseDataStorageAdapter(ABC):
         pass
 
     @abstractmethod
-    def load_ohlcv(
+    def load_ohlcv_data(
         self,
         symbol: str,
         start_date: Optional[datetime] = None,
@@ -44,7 +44,7 @@ class BaseDataStorageAdapter(ABC):
         pass
 
     @abstractmethod
-    def delete_data(self, symbol: str) -> None:
+    def delete_ohlcv_data(self, symbol: str) -> None:
         """Delete data for a symbol from storage.
 
         Args:

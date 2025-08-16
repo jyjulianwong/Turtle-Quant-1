@@ -4,10 +4,8 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Dict, List, Optional
 
-import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field
-from sklearn.preprocessing import normalize
 
 
 class SignalAction(Enum):
@@ -124,7 +122,7 @@ class BaseStrategyEngine(ABC):
     def __init__(
         self,
         strategies: List[BaseStrategy],
-        weights: List[float] = [],
+        weights: Dict[str, float] = {},
         buy_unit_threshold: float = 0.3,
         sell_threshold: float = -0.3,
     ):
@@ -132,29 +130,44 @@ class BaseStrategyEngine(ABC):
 
         Args:
             strategies: List of strategies to aggregate.
-            weights: Optional list of weights for each strategy.
-                    If None, equal weights are used.
+            weights: Optional dict mapping strategy class names to weights.
+                    If empty, equal weights are used for all strategies.
         """
         if not strategies:
             raise ValueError("At least one strategy is required")
 
         self.strategies = strategies
 
-        if not weights:
-            # Equal weights
-            self.weights = [1.0 / len(strategies)] * len(strategies)
-        else:
-            if len(weights) != len(strategies):
-                raise ValueError("Number of weights must match number of strategies")
-            if abs(sum(weights) - 1.0) > 1e-6:
-                # Convert to 2D array because sklearn expects 2D input
-                weights_array = np.array(weights).reshape(1, -1)
-                # Apply L1 normalization
-                normalized_array = normalize(weights_array, norm="l1")
-                # Flatten back to 1D
-                weights = normalized_array.flatten().tolist()
+        # Handle weights as dict mapping strategy class names to weights
+        strategy_names = [type(strategy).__name__ for strategy in strategies]
 
-            self.weights = weights
+        if not weights:
+            # Equal weights for all strategies
+            equal_weight = 1.0 / len(strategies)
+            self.weights = {name: equal_weight for name in strategy_names}
+        else:
+            # Check if all strategies have weights specified
+            missing_strategies = set(strategy_names) - set(weights.keys())
+            if missing_strategies:
+                raise ValueError(
+                    f"Missing weights for strategies: {missing_strategies}"
+                )
+
+            # Check for extra weights
+            extra_weights = set(weights.keys()) - set(strategy_names)
+            if extra_weights:
+                raise ValueError(
+                    f"Weights specified for unknown strategies: {extra_weights}"
+                )
+
+            # Normalize weights to sum to 1.0
+            total_weight = sum(weights.values())
+            if abs(total_weight - 1.0) > 1e-6:
+                self.weights = {
+                    name: weight / total_weight for name, weight in weights.items()
+                }
+            else:
+                self.weights = weights.copy()
 
         if not (-1.0 <= sell_threshold <= buy_unit_threshold <= 1.0):
             raise ValueError(

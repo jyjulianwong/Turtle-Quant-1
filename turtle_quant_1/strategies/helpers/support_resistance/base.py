@@ -2,8 +2,6 @@
 
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -258,7 +256,7 @@ class SupResIndicator:
         data: pd.DataFrame,
         timestamp: pd.Timestamp,
         symbol: str,
-        min_consensus: float = 0.5,
+        min_consensus: float = 0.2,
     ) -> bool:
         """Check if the current price is in a support or resistance zone.
 
@@ -347,7 +345,7 @@ class SupResIndicator:
         self,
         data: pd.DataFrame,
         symbol: str,
-        min_consensus: float = 0.5,
+        min_consensus: float = 0.2,
     ) -> pd.Series:
         """Check if prices are in support or resistance zones for all timestamps (vectorized).
 
@@ -414,7 +412,12 @@ class SupResIndicator:
 
         # Return boolean series based on consensus threshold
         result = consensus_ratios >= min_consensus
-        return pd.Series(result, index=data.index)
+        return pd.Series(
+            # Map result values to each datetime in data
+            # pyrefly: ignore
+            data=data["datetime"].map(result),
+            index=data.index,
+        )
 
 
 class BaseSupResStrategy(ABC):
@@ -462,7 +465,6 @@ class BaseSupResStrategy(ABC):
             The columns are: ['datetime', 'level_values'].
             The 'level_values' column contains fixed-size NumPy arrays (128 elements) with support and resistance levels.
         """
-        # TODO: Not being used.
         return self.generate_historical_levels(data, symbol).iloc[[-1]]
 
     def pivoted_levels(self, levels_df: pd.DataFrame) -> pd.DataFrame:
@@ -475,8 +477,8 @@ class BaseSupResStrategy(ABC):
 
         Returns:
             DataFrame with support and resistance levels.
-            The columns are: ['datetime', 'level_values'].
-            The 'level_values' column contains fixed-size NumPy arrays (128 elements) with support and resistance levels.
+            The columns are: ['datetime_beg', 'datetime_end', 'level_values'].
+            The 'level_values' column contains the list of support and resistance levels that apply to that time range.
         """
         if (
             "datetime" not in levels_df.columns
@@ -510,7 +512,8 @@ class BaseSupResStrategy(ABC):
                 max_dt = result.loc[nonzero_mask, "datetime"].max()
                 result_rows.append(
                     {
-                        "datetime": min_dt,
+                        "datetime_beg": min_dt,
+                        "datetime_end": max_dt,
                         "level_values": [col],
                     }
                 )

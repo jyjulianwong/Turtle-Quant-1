@@ -79,7 +79,10 @@ For naming conventions, refer to https://stepan.wtf/cloud-naming-convention/.
 
 ### Continuous deployment
 
-Deployment is fully automated and handled by GitHub Actions. Refer to [`.github/workflows/test-build-deploy.yaml`](.github/workflows/test-build-deploy.yaml).
+Deployment is fully automated and handled by GitHub Actions. Refer to: 
+- [`.github/workflows/main-deploy.yaml`](.github/workflows/main-deploy.yaml)
+- [`.github/workflows/main-docs.yaml`](.github/workflows/main-docs.yaml)
+- [`.github/workflows/dev-test.yaml`](.github/workflows/dev-test.yaml)
 
 ## Google Cloud administration
 

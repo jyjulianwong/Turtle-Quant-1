@@ -6,6 +6,7 @@ from datetime import datetime
 
 import pandas as pd
 import pytest
+import pytz
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,7 +37,23 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 @pytest.fixture
-def sample_ohlcv_data():
+def symbols():
+    """Fixture for test symbols."""
+    return ["AAPL", "GOOG"]
+
+
+@pytest.fixture
+def dates():
+    """Fixture for test dates."""
+    # NOTE: These must be dates that are not holidays.
+    return {
+        "start": datetime(2024, 9, 4, 10, 30, tzinfo=pytz.timezone("America/New_York")),
+        "end": datetime(2024, 9, 4, 11, 30, tzinfo=pytz.timezone("America/New_York")),
+    }
+
+
+@pytest.fixture
+def sample_ohlcv_data(dates):
     """Create a sample OHLCV DataFrame for testing."""
     data = pd.DataFrame(
         {
@@ -46,7 +63,7 @@ def sample_ohlcv_data():
             "Close": [151.0, 152.0],
             "Volume": [1000000, 1100000],
         },
-        index=pd.date_range(datetime(2024, 1, 1), periods=2, freq="h"),
+        index=pd.date_range(dates["start"], periods=2, freq="h"),
     )
 
     # Reset index to make datetime a column (matches expected format)

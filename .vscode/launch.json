@@ -26,6 +26,16 @@
                 "--port",
                 "8080"
             ],
+        },
+        {
+            "name": "Python Debugger: Unit Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/",
+                "-v",
+            ],
         }
     ]
 } 

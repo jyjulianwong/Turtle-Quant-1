@@ -1,11 +1,11 @@
+import math
 from datetime import datetime, timedelta
 from typing import List
 
 import holidays
-import math
 import pytz
 
-from turtle_quant_1.config import MARKET_HOURS, SYMBOL_MARKETS, MAX_HISTORY_DAYS
+from turtle_quant_1.config import MARKET_HOURS, MAX_HISTORY_DAYS, SYMBOL_MARKETS
 
 
 def get_symbol_market_hours(symbol: str) -> dict:
@@ -56,10 +56,31 @@ def get_symbol_timezone(symbol: str) -> str:
     return get_symbol_market_hours(symbol)["timezone"]
 
 
+def get_expected_market_hours_bounds(
+    symbol: str, start_date: datetime, end_date: datetime
+) -> tuple[datetime, datetime]:
+    """Get the expected market hours boundaries for a symbol between start and end dates.
+
+    TODO: Cache.
+
+    Args:
+        symbol: Stock symbol
+        start_date: Timezone-aware start date
+        end_date: Timezone-aware end date
+
+    Returns:
+        Tuple of timezone-aware datetime objects representing the start and end of the expected market hours
+    """
+    expected_datetimes = get_expected_market_hours_index(symbol, start_date, end_date)
+    return expected_datetimes[0], expected_datetimes[-1]
+
+
 def get_expected_market_hours_index(
     symbol: str, start_date: datetime, end_date: datetime
 ) -> List[datetime]:
     """Generate a list of all expected market hours for a symbol between start and end dates.
+
+    TODO: Cache.
 
     Args:
         symbol: Stock symbol to get market hours for
@@ -170,11 +191,24 @@ def is_holiday_date(date: datetime, symbol: str) -> bool:
     Returns:
         True if date is a bank holiday, False otherwise
     """
-    market_code = SYMBOL_MARKETS.get(symbol, "NYSE")  # TODO: Handle LSE.
+    # Get market code for this symbol
+    market_code = SYMBOL_MARKETS.get(symbol, "NYSE")
+    market_code = "XECB" if market_code == "ECB" else market_code
+
+    # Determine the years to check for holidays
     curr_year = datetime.now().year
     years = [curr_year - i for i in range(math.ceil(MAX_HISTORY_DAYS / 365) + 1)]
-    holiday_dates = list(holidays.financial_holidays(market_code, years=years).keys())
 
+    # Get holidays straight from the library
+    if market_code == "LSE":
+        # NOTE: LSE is not supported by holidays.financial_holidays. Substitute with country_holidays.
+        holiday_dates = list(holidays.country_holidays("GB", years=years).keys())
+    else:
+        holiday_dates = list(
+            holidays.financial_holidays(market_code, years=years).keys()
+        )
+
+    # Add overrides for holidays that are not in the library
     holiday_overrides = []
     if market_code == "NYSE":
         holiday_overrides = [

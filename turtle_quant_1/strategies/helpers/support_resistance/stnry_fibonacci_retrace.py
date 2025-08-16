@@ -6,7 +6,10 @@ import numpy as np
 import pandas as pd
 import scipy.signal as sp
 
-from turtle_quant_1.strategies.helpers.helpers import round_to_sig_fig
+from turtle_quant_1.strategies.helpers.helpers import (
+    convert_to_weekly_data,
+    round_to_sig_fig,
+)
 
 from .base import BaseSupResStrategy
 
@@ -22,7 +25,7 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
 
     def __init__(
         self,
-        peak_distance: int = 10,  # TODO: Respect CANDLE_UNIT.
+        peak_distance: int = 10,  # NOTE: This is a magic number. Depends on resampling.
         peak_prominence_pct: float = 0.02,
         fib_levels: List[float] = [],
     ):
@@ -177,7 +180,7 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
     def _calc_sup_res_levels(
         self,
         data: pd.DataFrame,
-        lookback: int = 12,  # TODO: Respect CANDLE_UNIT.
+        lookback: int = 14,  # NOTE: This is a magic number. Depends on resampling.
     ) -> list[np.ndarray]:
         level_values = [np.full(128, 0.0) for _ in range(len(data))]
         # TODO: Vectorize.
@@ -213,14 +216,20 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
         if not all(col in data.columns for col in required_cols):
             raise ValueError(f"Data must contain {required_cols} columns")
 
-        level_values = self._calc_sup_res_levels(data)
+        data_resampled = convert_to_weekly_data(data)
+        level_values = self._calc_sup_res_levels(data_resampled)
 
         # Create output DataFrame with 1-to-1 mapping to original data
         result = pd.DataFrame(
             {
-                "datetime": pd.to_datetime(data["datetime"]).reset_index(drop=True),
+                "datetime": pd.to_datetime(data_resampled["datetime"]).reset_index(
+                    drop=True
+                ),
                 "level_values": level_values,
             }
         )
+
+        result = data[["datetime"]].merge(result, on="datetime", how="left")
+        result["level_values"] = result["level_values"].bfill().ffill()
 
         return result
