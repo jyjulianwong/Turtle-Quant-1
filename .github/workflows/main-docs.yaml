@@ -27,17 +27,6 @@ jobs:
         with:
           python-version: '3.12'
       
-      - name: Export all repo vars and secrets
-        shell: bash
-        run: |
-          echo "Loading repo variables..."
-          VARS_JSON='${{ toJson(vars) }}'
-          echo "$VARS_JSON" | jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' >> $GITHUB_ENV
-
-          echo "Loading repo secrets..."
-          SECRETS_JSON='${{ toJson(secrets) }}'
-          echo "$SECRETS_JSON" | jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' >> $GITHUB_ENV
-      
       - name: Check environment
         run: env | sort
 
