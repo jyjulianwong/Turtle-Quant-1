@@ -16,6 +16,7 @@ permissions:
 jobs:
   # Build the documentation and upload the static HTML files as an artifact.
   build:
+    environment: google-cloud
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
