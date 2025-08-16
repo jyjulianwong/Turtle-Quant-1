@@ -27,16 +27,29 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Export all repo vars and secrets safely
+      - name: Export all repo vars safely
         shell: bash
         run: |
-          # Export variables
           VARS_JSON='${{ toJson(vars) }}'
-          echo "$VARS_JSON" | jq -r 'to_entries | .[] | "echo \(.key)=\(.value|tostring|@sh) >> \$GITHUB_ENV"' | bash
+          echo "$VARS_JSON" | jq -r 'to_entries | .[] | @base64' | while read entry; do
+            _jq() { echo "$entry" | base64 --decode | jq -r "$1"; }
+            key=$(_jq '.key')
+            value=$(_jq '.value')
+            # Safely write to GITHUB_ENV
+            printf "%s=%s\n" "$key" "$value" >> "$GITHUB_ENV"
+          done
 
-          # Export secrets
+      - name: Export all secrets safely
+        shell: bash
+        run: |
           SECRETS_JSON='${{ toJson(secrets) }}'
-          echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \(.key)=\(.value|tostring|@sh) >> \$GITHUB_ENV"' | bash
+          echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | @base64' | while read entry; do
+            _jq() { echo "$entry" | base64 --decode | jq -r "$1"; }
+            key=$(_jq '.key')
+            value=$(_jq '.value')
+            # Safely write to GITHUB_ENV
+            printf "%s=%s\n" "$key" "$value" >> "$GITHUB_ENV"
+          done
       
       - name: Check environment
         run: env | sort
