@@ -26,6 +26,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Export all repo vars and secrets safely
+        shell: bash
+        run: |
+          # Export variables
+          VARS_JSON='${{ toJson(vars) }}'
+          echo "$VARS_JSON" | jq -r 'to_entries | .[] | "echo \(.key)=\(.value|tostring|@sh) >> \$GITHUB_ENV"' | bash
+
+          # Export secrets
+          SECRETS_JSON='${{ toJson(secrets) }}'
+          echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | "echo \(.key)=\(.value|tostring|@sh) >> \$GITHUB_ENV"' | bash
       
       - name: Check environment
         run: env | sort
