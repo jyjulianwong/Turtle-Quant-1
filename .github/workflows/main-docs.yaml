@@ -30,14 +30,12 @@ jobs:
         shell: bash
         run: |
           echo "Loading repo variables..."
-          for var in $(jq -r 'keys[]' <<< '${{ toJson(vars) }}'); do
-            echo "$var=${{ vars[$var] }}" >> $GITHUB_ENV
-          done
+          VARS_JSON='${{ toJson(vars) }}'
+          echo "$VARS_JSON" | jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' >> $GITHUB_ENV
 
           echo "Loading repo secrets..."
-          for secret in $(jq -r 'keys[]' <<< '${{ toJson(secrets) }}'); do
-            echo "$secret=${{ secrets[$secret] }}" >> $GITHUB_ENV
-          done
+          SECRETS_JSON='${{ toJson(secrets) }}'
+          echo "$SECRETS_JSON" | jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' >> $GITHUB_ENV
 
       # Install all dependencies (including pdoc)
       # Build the documentation into docs/.
