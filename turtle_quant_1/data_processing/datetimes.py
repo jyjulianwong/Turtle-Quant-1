@@ -191,11 +191,24 @@ def is_holiday_date(date: datetime, symbol: str) -> bool:
     Returns:
         True if date is a bank holiday, False otherwise
     """
-    market_code = SYMBOL_MARKETS.get(symbol, "NYSE")  # TODO: Handle LSE.
+    # Get market code for this symbol
+    market_code = SYMBOL_MARKETS.get(symbol, "NYSE")
+    market_code = "XECB" if market_code == "ECB" else market_code
+
+    # Determine the years to check for holidays
     curr_year = datetime.now().year
     years = [curr_year - i for i in range(math.ceil(MAX_HISTORY_DAYS / 365) + 1)]
-    holiday_dates = list(holidays.financial_holidays(market_code, years=years).keys())
 
+    # Get holidays straight from the library
+    if market_code == "LSE":
+        # NOTE: LSE is not supported by holidays.financial_holidays. Substitute with country_holidays.
+        holiday_dates = list(holidays.country_holidays("GB", years=years).keys())
+    else:
+        holiday_dates = list(
+            holidays.financial_holidays(market_code, years=years).keys()
+        )
+
+    # Add overrides for holidays that are not in the library
     holiday_overrides = []
     if market_code == "NYSE":
         holiday_overrides = [
