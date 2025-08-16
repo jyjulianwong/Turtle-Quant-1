@@ -407,7 +407,7 @@ class BacktestingEngine:
 
         return results
 
-    def get_metrics(self, benchmark: str = "SPY") -> Dict:
+    def get_metrics(self, benchmark: str) -> Dict:
         """Calculate metrics for the portfolio performance.
 
         NOTE: This is currently a wrapper around quantstats metrics.

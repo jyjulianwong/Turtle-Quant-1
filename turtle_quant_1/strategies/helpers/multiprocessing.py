@@ -20,7 +20,7 @@ CACHE_DIR_PATH = Path(os.path.join(tempfile.gettempdir(), "turtle-quant-1"))
 class ProcessSafeCache:
     """Process-safe cache using file-based storage with proper locking."""
 
-    REFCOUNT_FILE = CACHE_DIR_PATH / "cache_refcount.txt"
+    REF_COUNT_FILE_PATH = CACHE_DIR_PATH / "cache_rc.txt"
 
     def __init__(self):
         """Initialize the cache with a directory for storage."""
@@ -35,24 +35,24 @@ class ProcessSafeCache:
 
         # Increment reference count and clear if first
         with self._global_lock():
-            refcount = self._read_refcount()
-            if refcount == 0:
+            ref_count = self._read_ref_count()
+            if ref_count == 0:
                 self._clear_cache_dir()
                 logger.debug(f"Cleared cache directory '{self.cache_dir_path}'")
-            self._write_refcount(refcount + 1)
-            logger.debug(f"Incremented refcount to {refcount + 1}")
+            self._write_ref_count(ref_count + 1)
+            logger.debug(f"Incremented reference count to {ref_count + 1}")
 
         atexit.register(self._cleanup)
 
     def _cleanup(self):
         try:
             with self._global_lock():
-                refcount = self._read_refcount()
-                if refcount > 0:
-                    refcount -= 1
-                    self._write_refcount(refcount)
-                    logger.debug(f"Decremented refcount to {refcount}")
-                if refcount == 0:
+                ref_count = self._read_ref_count()
+                if ref_count > 0:
+                    ref_count -= 1
+                    self._write_ref_count(ref_count)
+                    logger.debug(f"Decremented reference count to {ref_count}")
+                if ref_count == 0:
                     self._clear_cache_dir()
                     logger.debug(f"Cleared cache directory '{self.cache_dir_path}'")
         except Exception as e:
@@ -70,21 +70,25 @@ class ProcessSafeCache:
         finally:
             self._release_file_lock(fd)
 
-    def _read_refcount(self):
-        if not self.REFCOUNT_FILE.exists():
+    def _read_ref_count(self):
+        if not self.REF_COUNT_FILE_PATH.exists():
             return 0
         try:
-            return int(self.REFCOUNT_FILE.read_text().strip())
+            return int(self.REF_COUNT_FILE_PATH.read_text().strip())
         except Exception:
             return 0
 
-    def _write_refcount(self, count):
-        self.REFCOUNT_FILE.write_text(str(count))
+    def _write_ref_count(self, count):
+        self.REF_COUNT_FILE_PATH.write_text(str(count))
 
     def _clear_cache_dir(self):
+        size = 0
         for file in self.cache_dir_path.glob("cache_*.pkl"):
+            size += file.stat().st_size
             file.unlink()
-        logger.debug(f"Cleared cache in '{self.cache_dir_path}'")
+        logger.debug(
+            f"Cleared cache in '{self.cache_dir_path}' ({size / 1024 / 1024:.2f} MB)"
+        )
 
     # ---------------------------------
     # File-based lock methods

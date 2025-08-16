@@ -72,7 +72,7 @@ class StnryPivotPoint(BaseSupResStrategy):
             levels = self._calc_pivot_levels(data.iloc[i_start:i])
             # Round values to reduce number of unique values
             # This is needed for the MultiLabelBinarizer to work later on
-            rounded_levels = round_to_sig_fig(levels, 4).tolist()  # TODO: Types.
+            rounded_levels = round_to_sig_fig(levels, 4)
             # Create fixed-size array with padding
             fixed_array = np.full(128, 0.0)
             fixed_array[: len(rounded_levels)] = rounded_levels

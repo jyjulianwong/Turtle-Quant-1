@@ -76,8 +76,7 @@ class YFinanceDataFetcher(BaseDataFetcher):
                 # If none of the above, the first column should be the datetime
                 df.columns = ["datetime"] + list(df.columns[1:])
 
-            # TODO: Check timezone is as expected based on config.
-            # Keep timezone-aware timestamps as they are - no conversion
+            # Keep timezone-aware timestamps as they are with no conversions
             # Just ensure it's a datetime type
             if "datetime" in df.columns:
                 df["datetime"] = pd.to_datetime(df["datetime"])

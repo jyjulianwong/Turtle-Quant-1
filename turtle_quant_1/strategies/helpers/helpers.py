@@ -2,12 +2,21 @@ import numpy as np
 import pandas as pd
 
 
-def round_to_sig_fig(x, p):
-    """Round a list of numbers to a specified number of significant figures."""
+def round_to_sig_fig(x: list[float], p: int) -> list[float]:
+    """Round a list of numbers to a specified number of significant figures.
+
+    Args:
+        x: The list of numbers to round.
+        p: The number of significant figures to round to.
+
+    Returns:
+        The rounded list of numbers.
+    """
     x = np.asarray(x, dtype=float)
-    x_positive = np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1))
-    mags = 10 ** (p - 1 - np.floor(np.log10(x_positive)))
-    return np.round(x * mags) / mags
+    x_pos = np.where(np.isfinite(x) & (x != 0), np.abs(x), 10 ** (p - 1))
+    x_mag = 10 ** (p - 1 - np.floor(np.log10(x_pos)))
+    result = np.round(x * x_mag) / x_mag
+    return result.tolist()
 
 
 def calc_atr_value(

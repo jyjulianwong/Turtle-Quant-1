@@ -465,7 +465,6 @@ class BaseSupResStrategy(ABC):
             The columns are: ['datetime', 'level_values'].
             The 'level_values' column contains fixed-size NumPy arrays (128 elements) with support and resistance levels.
         """
-        # TODO: Not being used.
         return self.generate_historical_levels(data, symbol).iloc[[-1]]
 
     def pivoted_levels(self, levels_df: pd.DataFrame) -> pd.DataFrame:

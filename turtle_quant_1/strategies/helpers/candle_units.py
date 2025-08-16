@@ -7,7 +7,7 @@ assert CANDLE_UNIT in _SUPPORTED_CANDLE_UNITS
 
 
 def convert_units(units: int, from_unit: str, to_unit: str) -> int:
-    """Convert units between different candle units.
+    """Approximately convert units between different candle units.
 
     Args:
         units: The number of units to convert.
@@ -28,13 +28,13 @@ def convert_units(units: int, from_unit: str, to_unit: str) -> int:
     if from_unit == "HOUR":
         atomic_units = units
     if from_unit == "DAY":
-        # TODO: Assume there are 6 hours in a working day.
+        # NOTE: Assume there are 6 hours in a working day.
         atomic_units = units * 6
     if from_unit == "WEEK":
-        # TODO: Assume there are 5 working days in a week.
+        # NOTE: Assume there are 5 working days in a week.
         atomic_units = units * 6 * 5
     if from_unit == "MONTH":
-        # TODO: Assume there are 20 working days in a month.
+        # NOTE: Assume there are 20 working days in a month.
         atomic_units = units * 6 * 20
 
     if to_unit == "HOUR":

@@ -1,9 +1,10 @@
 """Hyperparameter tuning script for trading strategies using Optuna."""
 
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
 
 import optuna
+
 from turtle_quant_1.backtesting.engine import BacktestingEngine
 from turtle_quant_1.backtesting.models import TestCaseResults
 from turtle_quant_1.strategies.engine import StrategyEngine
@@ -51,7 +52,7 @@ def get_config(trial: optuna.Trial) -> Dict[str, Any]:
     }
 
     # Strategy engine configuration
-    # NOTE: Weights are not part of the hyperparameters of the strategy engine.
+    # TODO: Add weights.
     config = {
         "strategies": strategies,
         "buy_unit_threshold": trial.suggest_float("buy_unit_threshold", 0.1, 0.9),
@@ -74,6 +75,7 @@ def run_backtest(
         BacktestingResults object
     """
     # Use context manager for proper resource cleanup
+    # pyrefly: ignore
     with StrategyEngine.from_config(config) as strategy_engine:
         # Create backtesting engine
         backtesting_engine = BacktestingEngine(

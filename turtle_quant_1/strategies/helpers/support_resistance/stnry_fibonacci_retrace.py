@@ -25,7 +25,7 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
 
     def __init__(
         self,
-        peak_distance: int = 10,  # TODO: Respect CANDLE_UNIT.
+        peak_distance: int = 10,  # NOTE: This is a magic number. Depends on resampling.
         peak_prominence_pct: float = 0.02,
         fib_levels: List[float] = [],
     ):
@@ -189,7 +189,7 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
             levels = self._calc_fibonacci_levels_for_candle(data.iloc[i_start:i], i)
             # Round values to reduce number of unique values
             # This is needed for the MultiLabelBinarizer to work later on
-            rounded_levels = round_to_sig_fig(levels, 4).tolist()  # TODO: Types.
+            rounded_levels = round_to_sig_fig(levels, 4)
             # Create fixed-size array with padding
             fixed_array = np.full(128, 0.0)
             fixed_array[: len(rounded_levels)] = rounded_levels

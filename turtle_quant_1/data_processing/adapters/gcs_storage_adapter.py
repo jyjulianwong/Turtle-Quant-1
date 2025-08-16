@@ -7,7 +7,7 @@ from typing import Optional
 import pandas as pd
 from google.cloud import storage
 
-from turtle_quant_1.config import GCLOUD_PROJECT_ID, GCLOUD_STB_DATA_NAME
+from turtle_quant_1.config import CANDLE_UNIT, GCLOUD_PROJECT_ID, GCLOUD_STB_DATA_NAME
 from turtle_quant_1.data_processing.base import BaseDataStorageAdapter
 
 
@@ -40,8 +40,14 @@ class GCSDataStorageAdapter(BaseDataStorageAdapter):
         Returns:
             The blob name in the format: ohlcv/{symbol}/hourly.parquet
         """
-        # TODO: Respect CANDLE_UNIT.
-        return f"ohlcv/{symbol}/hourly.parquet"
+        unit_file_name_dict = {
+            "HOUR": "hourly.parquet",
+            "DAY": "daily.parquet",
+            "WEEK": "weekly.parquet",
+            "MONTH": "monthly.parquet",
+        }
+
+        return f"ohlcv/{symbol}/{unit_file_name_dict[CANDLE_UNIT]}"
 
     def load_ohlcv(
         self,

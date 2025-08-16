@@ -11,17 +11,8 @@ from turtle_quant_1.backtesting.runner import (
     BacktestingTestCase,
     BacktestingTestRunner,
 )
-from turtle_quant_1.strategies.candlesticks import (
-    EngulfingPattern,
-    MomentumPattern,
-    MultiplePattern,
-)
+from turtle_quant_1.strategies.base import BaseStrategy
 from turtle_quant_1.strategies.engine import StrategyEngine
-from turtle_quant_1.strategies.mean_reversion import BollingerBand, RsiSupResDivergence
-from turtle_quant_1.strategies.momentum import (
-    MovingAverageCrossover,
-    RelativeStrengthIndex,
-)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,55 +22,12 @@ def create_test_cases() -> List[BacktestingTestCase]:
     """Create predefined test cases for backtesting."""
     test_cases = []
 
-    # TODO: Clean up.
-    moving_average_crossover = MovingAverageCrossover()
-    relative_strength_index = RelativeStrengthIndex()
-    bollinger_band = BollingerBand()
-    rsi_sup_res_divergence = RsiSupResDivergence()
-    engulfing_pattern = EngulfingPattern()
-    multiple_pattern = MultiplePattern()
-    momentum_pattern = MomentumPattern()
-
-    # # Test Case 1: Zero capital test
-    # strategies = [
-    #     moving_average_crossover,
-    #     relative_strength_index,
-    #     bollinger_band,
-    #     rsi_sup_res_divergence,
-    #     engulfing_pattern,
-    #     multiple_pattern,
-    #     momentum_pattern,
-    # ]
-    #
-    # strategy_engine = StrategyEngine(
-    #     strategies=strategies,
-    #     weights={},  # This will use equal weights for all strategies
-    #     buy_unit_threshold=0.2,
-    #     sell_threshold=-0.2,
-    # )
-
-    # test_cases.append(
-    #     BacktestingTestCase(
-    #         name="zero_capital",
-    #         description="Test with $0 starting capital to verify no BUY orders are executed",
-    #         strategy_engine=strategy_engine,
-    #         initial_capital=0.0,
-    #         expected_results={
-    #             "total_transactions": 0
-    #         },  # Expect no transactions with $0
-    #     )
-    # )
-
-    # Test Case 2: Standard backtesting with moderate capital
-    strategies = [
-        moving_average_crossover,
-        relative_strength_index,
-        bollinger_band,
-        rsi_sup_res_divergence,
-        engulfing_pattern,
-        multiple_pattern,
-        momentum_pattern,
-    ]
+    # Test Case 1: Standard backtesting with moderate capital
+    # pyrefly: ignore
+    strategies = [strategy_type() for strategy_type in BaseStrategy.__subclasses__()]
+    logger.info(
+        f"Found {len(strategies)} strategies: {[type(strategy).__name__ for strategy in strategies]}"
+    )
 
     weights = {}
 
