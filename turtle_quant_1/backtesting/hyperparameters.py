@@ -7,6 +7,7 @@ import optuna
 
 from turtle_quant_1.backtesting.engine import BacktestingEngine
 from turtle_quant_1.backtesting.models import TestCaseResults
+from turtle_quant_1.strategies.base import BaseStrategy
 from turtle_quant_1.strategies.engine import StrategyEngine
 
 logging.basicConfig(level=logging.INFO)
@@ -27,34 +28,24 @@ def get_config(trial: optuna.Trial) -> Dict[str, Any]:
     # TODO: Add a way to exclude strategies.
     # TODO: Clean up.
     strategies = {
-        "BollingerBand": {
-            "lookback_candles": trial.suggest_int("bb_lookback_candles", 20, 200),
-            "n_std": trial.suggest_int("bb_n_std", 1, 3),
-        },
-        "MovingAverageCrossover": {
-            "sma_candles": trial.suggest_int("mac_sma_candles", 5, 50),
-            "lma_candles": trial.suggest_int("mac_lma_candles", 100, 200),
-        },
-        "RelativeStrengthIndex": {
-            "lookback_candles": trial.suggest_int("rsi_lookback_candles", 14, 200)
-        },
-        "RsiSupResDivergence": {
-            "lookback_candles": trial.suggest_int(
-                "rsi_sup_res_divergence_lookback_candles", 14, 200
-            ),
-            "local_extrema_window": trial.suggest_int(
-                "rsi_sup_res_divergence_local_extrema_window", 1, 10
-            ),
-        },
-        "EngulfingPattern": {},
-        "MultiplePattern": {},
-        "MomentumPattern": {},
+        strategy_type.__name__: {}
+        # pyrefly: ignore
+        for strategy_type in BaseStrategy.__subclasses__()
+    }
+
+    weights = {
+        strategy_type.__name__: trial.suggest_float(
+            f"{strategy_type.__name__}_weight", 0.0, 1.0
+        )
+        # pyrefly: ignore
+        for strategy_type in BaseStrategy.__subclasses__()
     }
 
     # Strategy engine configuration
     # TODO: Add weights.
     config = {
         "strategies": strategies,
+        "weights": weights,
         "buy_unit_threshold": trial.suggest_float("buy_unit_threshold", 0.1, 0.9),
         "sell_threshold": trial.suggest_float("sell_threshold", -0.9, -0.1),
     }
@@ -74,27 +65,26 @@ def run_backtest(
     Returns:
         BacktestingResults object
     """
-    # Use context manager for proper resource cleanup
-    # pyrefly: ignore
-    with StrategyEngine.from_config(config) as strategy_engine:
-        # Create backtesting engine
-        backtesting_engine = BacktestingEngine(
-            strategy_engine=strategy_engine,
-            initial_capital=initial_capital,
-            max_lookback_days=60,  # NOTE: Shorter for faster optimization
-            max_lookforward_days=60,  # NOTE: Shorter for faster optimization
-        )
+    strategy_engine = StrategyEngine.from_config(config)
 
-        # Run backtest
-        results = backtesting_engine.run_backtest()
+    # Create backtesting engine
+    backtesting_engine = BacktestingEngine(
+        strategy_engine=strategy_engine,
+        initial_capital=initial_capital,
+        max_lookback_days=60,  # NOTE: Shorter for faster optimization
+        max_lookforward_days=60,  # NOTE: Shorter for faster optimization
+    )
 
-        # Get evaluation metrics
-        metrics = backtesting_engine.get_metrics(benchmark="SPY")
+    # Run backtest
+    results = backtesting_engine.run_backtest()
 
-        # Combine results
-        results.metrics = metrics
+    # Get evaluation metrics
+    metrics = backtesting_engine.get_metrics(benchmark="SPY")
 
-        return results
+    # Combine results
+    results.metrics = metrics
+
+    return results
 
 
 def get_objective_metric(
