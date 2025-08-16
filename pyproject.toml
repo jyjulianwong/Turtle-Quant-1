@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "turtle-quant-1"
-version = "1.0.1"
+version = "1.1.0"
 description = "All hail the turt."
 authors = [
     { name = "Julian Wong", email = "julianwong2000@gmail.com" }

@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.1.0 (2025-08-16)
+
+### Features
+
+- New strategies, better data management, auto-generated documentation
+  ([#1](https://github.com/jyjulianwong/Turtle-Quant-1/pull/1),
+  [`adbbace`](https://github.com/jyjulianwong/Turtle-Quant-1/commit/adbbace28e27c01308d010c7cec9fed9f5368cc8))
+
+
 ## v1.0.1 (2025-08-15)
 
 ### Bug Fixes
