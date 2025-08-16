@@ -27,41 +27,22 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Export all repo vars safely
-        shell: bash
-        run: |
-          VARS_JSON='${{ toJson(vars) }}'
-          echo "$VARS_JSON" | jq -r 'to_entries | .[] | @base64' | while read entry; do
-            _jq() { echo "$entry" | base64 --decode | jq -r "$1"; }
-            key=$(_jq '.key')
-            value=$(_jq '.value')
-            # Safely write to GITHUB_ENV
-            printf "%s=%s\n" "$key" "$value" >> "$GITHUB_ENV"
-          done
-
-      - name: Export all secrets safely
-        shell: bash
-        run: |
-          SECRETS_JSON='${{ toJson(secrets) }}'
-          echo "$SECRETS_JSON" | jq -r 'to_entries | .[] | @base64' | while read entry; do
-            _jq() { echo "$entry" | base64 --decode | jq -r "$1"; }
-            key=$(_jq '.key')
-            value=$(_jq '.value')
-            # Safely write to GITHUB_ENV
-            printf "%s=%s\n" "$key" "$value" >> "$GITHUB_ENV"
-          done
-      
-      - name: Check environment
-        run: env | sort
-
       # Install all dependencies (including pdoc)
       # Build the documentation into docs/.
       # We use a custom build script for pdoc itself, ideally you just run `pdoc -o docs/ ...` here.
-      - run: |
+      - name: Run pdoc
+        run: |
           python -m pip install --upgrade pip
           python -m pip install uv
           uv sync --all-groups
           uv run pdoc -o docs/ turtle_quant_1/
+        env:
+          TURTLEQUANT1_ENV: ${{ vars.TURTLEQUANT1_ENV }}
+          TURTLEQUANT1_GCLOUD_REGION: ${{ vars.TURTLEQUANT1_GCLOUD_REGION }}
+          TURTLEQUANT1_GCLOUD_PROJECT_ID: ${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}
+          TURTLEQUANT1_GCLOUD_STB_DATA_NAME: ${{ vars.TURTLEQUANT1_GCLOUD_STB_DATA_NAME }}
+          TURTLEQUANT1_ALPHA_VANTAGE_API_KEY: ${{ secrets.TURTLEQUANT1_ALPHA_VANTAGE_API_KEY }}
+          TURTLEQUANT1_MAX_WORKERS: ${{ vars.TURTLEQUANT1_MAX_WORKERS }}
 
       - uses: actions/upload-pages-artifact@v3
         with:
