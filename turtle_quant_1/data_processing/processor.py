@@ -80,7 +80,7 @@ class DataProcessor(BaseDataProcessor):
         if DANGER_CLEAR_CACHE:
             self.data_cache.pop(symbol, None)
         if DANGER_CLEAR_STORAGE:
-            self.storage.delete_data(symbol)
+            self.storage.delete_ohlcv_data(symbol)
             self.data_cache.pop(symbol, None)
 
         is_data_updated = False
@@ -95,7 +95,7 @@ class DataProcessor(BaseDataProcessor):
             logger.warning(
                 f"No data found for {symbol} in cache. Fetching from {self.storage}..."
             )
-            df = self.storage.load_ohlcv(
+            df = self.storage.load_ohlcv_data(
                 symbol=symbol,
                 start_date=None,  # TODO: Work out why.
                 end_date=None,  # TODO: Work out why.
@@ -136,4 +136,4 @@ class DataProcessor(BaseDataProcessor):
             symbol: Symbol to save data for.
             data: DataFrame with data.
         """
-        self.storage.save_ohlcv(symbol=symbol, data=data)
+        self.storage.save_ohlcv_data(symbol=symbol, data=data)

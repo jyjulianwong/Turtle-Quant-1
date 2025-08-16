@@ -5,25 +5,14 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
+import pytz
 
-from turtle_quant_1.data_processing.base import BaseDataMaintainer
 from turtle_quant_1.data_processing.adapters.gcs_storage_adapter import (
     GCSDataStorageAdapter,
 )
-from turtle_quant_1.data_processing.processor import DataProcessor
 from turtle_quant_1.data_processing.adapters.yfinance_fetcher import YFinanceDataFetcher
-
-
-@pytest.fixture
-def symbols():
-    """Fixture for test symbols."""
-    return ["AAPL", "GOOGL"]
-
-
-@pytest.fixture
-def dates():
-    """Fixture for test dates."""
-    return {"start": datetime(2024, 1, 1), "end": datetime(2024, 1, 2)}
+from turtle_quant_1.data_processing.base import BaseDataMaintainer
+from turtle_quant_1.data_processing.processor import DataProcessor
 
 
 @pytest.fixture
@@ -45,8 +34,9 @@ def mock_maintainer():
 
 
 @pytest.fixture
-def sample_ohlcv_data():
+def sample_ohlcv_data(dates):
     """Fixture for sample OHLCV data."""
+    # TODO: Duplicated.
     return pd.DataFrame(
         {
             "Open": [150.0, 151.0],
@@ -55,7 +45,7 @@ def sample_ohlcv_data():
             "Close": [151.0, 152.0],
             "Volume": [1000000, 1050000],
         },
-        index=pd.date_range(datetime(2024, 1, 1), periods=2, freq="h"),
+        index=pd.date_range(dates["start"], periods=2, freq="h"),
     )
 
 
@@ -83,7 +73,7 @@ class TestDataProcessor:
         """Test loading data from storage when data exists."""
         # Setup
         symbol = "AAPL"
-        mock_storage_adapter.load_ohlcv.return_value = sample_ohlcv_data
+        mock_storage_adapter.load_ohlcv_data.return_value = sample_ohlcv_data
 
         # Test
         result = data_processor.load_data(
@@ -95,12 +85,12 @@ class TestDataProcessor:
 
         # Assertions
         pd.testing.assert_frame_equal(result, sample_ohlcv_data)
-        mock_storage_adapter.load_ohlcv.assert_called_once_with(
+        mock_storage_adapter.load_ohlcv_data.assert_called_once_with(
             symbol=symbol,
             start_date=None,  # TODO: Work out why.
             end_date=None,  # TODO: Work out why.
         )
-        assert not mock_storage_adapter.save_data.called
+        assert not mock_storage_adapter.save_ohlcv_data.called
         assert symbol in data_processor.data_cache
 
     def test_load_data_from_fetcher(
@@ -114,7 +104,7 @@ class TestDataProcessor:
         """Test loading data from fetcher when storage is empty."""
         # Setup
         symbol = "AAPL"
-        mock_storage_adapter.load_ohlcv.return_value = pd.DataFrame()
+        mock_storage_adapter.load_ohlcv_data.return_value = pd.DataFrame()
         mock_fetcher.fetch_hourly_ohlcv.return_value = sample_ohlcv_data
 
         # Test
@@ -127,7 +117,7 @@ class TestDataProcessor:
 
         # Assertions
         pd.testing.assert_frame_equal(result, sample_ohlcv_data)
-        mock_storage_adapter.load_ohlcv.assert_called_once_with(
+        mock_storage_adapter.load_ohlcv_data.assert_called_once_with(
             symbol=symbol,
             start_date=None,  # TODO: Work out why.
             end_date=None,  # TODO: Work out why.
@@ -137,7 +127,7 @@ class TestDataProcessor:
             start_date=dates["start"],
             end_date=dates["end"],
         )
-        mock_storage_adapter.save_ohlcv.assert_called_once_with(
+        mock_storage_adapter.save_ohlcv_data.assert_called_once_with(
             symbol=symbol,
             data=sample_ohlcv_data,
         )
@@ -166,9 +156,9 @@ class TestDataProcessor:
 
         # Assertions
         pd.testing.assert_frame_equal(result, sample_ohlcv_data)
-        assert not mock_storage_adapter.load_ohlcv.called
+        assert not mock_storage_adapter.load_ohlcv_data.called
         assert not mock_fetcher.fetch_hourly_ohlcv.called
-        assert not mock_storage_adapter.save_data.called
+        assert not mock_storage_adapter.save_ohlcv_data.called
 
     def test_load_data_with_imputation(
         self,
@@ -181,11 +171,13 @@ class TestDataProcessor:
         """Test loading data with imputation enabled."""
         # Setup
         symbol = "AAPL"
-        mock_storage_adapter.load_ohlcv.return_value = sample_ohlcv_data
+        mock_storage_adapter.load_ohlcv_data.return_value = sample_ohlcv_data
 
         # Create imputed data with an extra row
         imputed_data = sample_ohlcv_data.copy()
-        imputed_data.loc[datetime(2024, 1, 1, 2)] = [
+        imputed_data.loc[
+            datetime(2024, 9, 4, 12, 30, tzinfo=pytz.timezone("America/New_York"))
+        ] = [
             153.0,
             154.0,
             152.0,
@@ -210,7 +202,7 @@ class TestDataProcessor:
             sample_ohlcv_data,
             dates["end"],
         )
-        mock_storage_adapter.save_ohlcv.assert_called_once_with(
+        mock_storage_adapter.save_ohlcv_data.assert_called_once_with(
             symbol=symbol,
             data=imputed_data,
         )
@@ -230,7 +222,7 @@ class TestDataProcessor:
         data_processor.save_data(symbol=symbol, data=sample_ohlcv_data)
 
         # Assertions
-        mock_storage_adapter.save_ohlcv.assert_called_once_with(
+        mock_storage_adapter.save_ohlcv_data.assert_called_once_with(
             symbol=symbol,
             data=sample_ohlcv_data,
         )

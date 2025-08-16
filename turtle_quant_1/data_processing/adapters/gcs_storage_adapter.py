@@ -49,7 +49,7 @@ class GCSDataStorageAdapter(BaseDataStorageAdapter):
 
         return f"ohlcv/{symbol}/{unit_file_name_dict[CANDLE_UNIT]}"
 
-    def load_ohlcv(
+    def load_ohlcv_data(
         self,
         symbol: str,
         start_date: Optional[datetime] = None,
@@ -87,7 +87,7 @@ class GCSDataStorageAdapter(BaseDataStorageAdapter):
 
         return df
 
-    def save_ohlcv(
+    def save_ohlcv_data(
         self,
         symbol: str,
         data: pd.DataFrame,
@@ -107,27 +107,7 @@ class GCSDataStorageAdapter(BaseDataStorageAdapter):
             buffer.seek(0)
             blob.upload_from_file(buffer, content_type="application/octet-stream")
 
-    def load_data(self, symbol: str) -> pd.DataFrame:
-        """Load data from GCS (alias for load_ohlcv).
-
-        Args:
-            symbol: The symbol to load data for.
-
-        Returns:
-            DataFrame with data.
-        """
-        return self.load_ohlcv(symbol)
-
-    def save_data(self, symbol: str, data: pd.DataFrame) -> None:
-        """Save data to GCS (alias for save_ohlcv).
-
-        Args:
-            symbol: The symbol the data belongs to.
-            data: DataFrame with data.
-        """
-        self.save_ohlcv(symbol, data)
-
-    def delete_data(self, symbol: str) -> None:
+    def delete_ohlcv_data(self, symbol: str) -> None:
         """Delete data from GCS.
 
         Args:

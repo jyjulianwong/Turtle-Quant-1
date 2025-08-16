@@ -42,7 +42,7 @@ class TestGCSDataStorage:
         mock_storage_adapter.bucket.blob.return_value = mock_blob
 
         # Test
-        mock_storage_adapter.save_data(symbol, sample_ohlcv_data)
+        mock_storage_adapter.save_ohlcv_data(symbol, sample_ohlcv_data)
 
         # Assertions
         mock_storage_adapter.bucket.blob.assert_called_once()
@@ -67,7 +67,7 @@ class TestGCSDataStorage:
         mock_blob.download_to_file.side_effect = mock_download_to_file
 
         # Test
-        result = mock_storage_adapter.load_data(symbol)
+        result = mock_storage_adapter.load_ohlcv_data(symbol)
 
         # Assertions
         mock_storage_adapter.bucket.blob.assert_called_once()
@@ -82,7 +82,7 @@ class TestGCSDataStorage:
         mock_blob.exists.return_value = False
 
         # Test
-        result = mock_storage_adapter.load_data(symbol)
+        result = mock_storage_adapter.load_ohlcv_data(symbol)
 
         # Assertions
         assert result.empty
@@ -95,7 +95,7 @@ class TestGCSDataStorage:
             "Volume",
         ]
 
-    def test_delete_data_success(self, mock_storage_adapter, symbol):
+    def test_delete_ohlcv_data_success(self, mock_storage_adapter, symbol):
         """Test successful data deletion from GCS."""
         # Mock blob
         mock_blob = MagicMock()
@@ -103,13 +103,13 @@ class TestGCSDataStorage:
         mock_blob.exists.return_value = True
 
         # Test
-        mock_storage_adapter.delete_data(symbol)
+        mock_storage_adapter.delete_ohlcv_data(symbol)
 
         # Assertions
         mock_storage_adapter.bucket.blob.assert_called_once()
         mock_blob.delete.assert_called_once()
 
-    def test_delete_data_not_found(self, mock_storage_adapter, symbol):
+    def test_delete_ohlcv_data_not_found(self, mock_storage_adapter, symbol):
         """Test deletion of non-existent data."""
         # Mock blob
         mock_blob = MagicMock()
@@ -117,7 +117,7 @@ class TestGCSDataStorage:
         mock_blob.exists.return_value = False
 
         # Test
-        mock_storage_adapter.delete_data(symbol)
+        mock_storage_adapter.delete_ohlcv_data(symbol)
 
         # Assertions
         mock_storage_adapter.bucket.blob.assert_called_once()
