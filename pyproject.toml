@@ -43,6 +43,9 @@ dev = [
     "tuna>=0.5.11",
     "uv-sort==0.6.0",
 ]
+docs = [
+    "pdoc>=15.0.4",
+]
 notebook = [
     "ipykernel>=6.30.0",
     "ipython>=9.4.0",
