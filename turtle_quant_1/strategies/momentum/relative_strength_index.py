@@ -1,5 +1,6 @@
 """Relative Strength Index (RSI) strategy implementation."""
 
+import numpy as np
 import pandas as pd
 
 from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS, CANDLE_UNIT
@@ -54,6 +55,8 @@ class RelativeStrengthIndex(BaseStrategy):
 
         rs = mean_gain / (mean_loss + 1e-9)  # Prevent division by zero
         rsi = 100 - (100 / (1 + rs))  # The standard RSI formula
+        if np.isnan(rsi.iloc[-1]):
+            raise ValueError("Last score should not be NaN")
 
         rsi = rsi.reindex(data.index)
         rsi = rsi.bfill().ffill()
@@ -74,4 +77,15 @@ class RelativeStrengthIndex(BaseStrategy):
         """
         # RSI < 30 -> Score near +1 -> BUY
         # RSI > 70 -> Score near -1 -> SELL
-        return self.generate_historical_scores(data, symbol).iloc[-1]
+        return self.generate_historical_scores(
+            # TODO: Using * 2.0 here to give buffer zone for any miscalculations.
+            # This depends on the resampling of the data
+            data.iloc[
+                -(
+                    round(
+                        convert_units(self.lookback_candles, "DAY", CANDLE_UNIT) * 2.0
+                    )
+                ) :
+            ],
+            symbol,
+        ).iloc[-1]

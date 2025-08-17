@@ -297,6 +297,7 @@ class BacktestingEngine:
         simulation_ticks = self._generate_simulation_ticks(
             simulation_start, simulation_end
         )
+        simulation_ticks = simulation_ticks[:10]
 
         logger.info(
             f"Generated {len(simulation_ticks)} simulation ticks for simulation"

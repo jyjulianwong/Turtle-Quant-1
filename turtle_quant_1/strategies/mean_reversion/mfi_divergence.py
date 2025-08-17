@@ -98,6 +98,8 @@ class MfiDivergence(BaseStrategy):
         mfi = self._calc_mfi(data)
         maximas, minimas = self._find_extrema(close)
         divergence_signals = self._get_divergence_signals(close, mfi, maximas, minimas)
+        if np.isnan(divergence_signals.iloc[-1]):
+            raise ValueError("Last score should not be NaN")
 
         # Optional: Smooth or decay signal over a few candles
         divergence_signals = divergence_signals.ffill(limit=3).fillna(0)
@@ -119,4 +121,6 @@ class MfiDivergence(BaseStrategy):
         Returns:
             Score array with each value between -1.0 and +1.0, indexed by datetime
         """
-        return self.generate_historical_scores(data, symbol).iloc[-1]
+        return self.generate_historical_scores(
+            data.iloc[-(self.mfi_period + 1) :], symbol
+        ).iloc[-1]

@@ -126,6 +126,8 @@ class RsiSupResDivergence(BaseStrategy):
         rsi = self._calc_rsi(close)
         maximas, minimas = self._find_extrema(close)
         divergence_signals = self._get_divergence_signals(close, rsi, maximas, minimas)
+        if np.isnan(divergence_signals.iloc[-1]):
+            raise ValueError("Last score should not be NaN")
 
         # Optional: Smooth or decay signal over a few candles
         divergence_signals = divergence_signals.ffill(limit=3).fillna(0)
@@ -148,4 +150,6 @@ class RsiSupResDivergence(BaseStrategy):
             The prediction score.
         """
 
-        return self.generate_historical_scores(data, symbol).iloc[-1]
+        return self.generate_historical_scores(
+            data.iloc[-(self.lookback_candles + 1) :], symbol
+        ).iloc[-1]

@@ -13,7 +13,7 @@ The program profiling notebook ([notebooks/snakeviz.ipynb](notebooks/snakeviz.ip
 The method names that were consuming the majority of "unexplained" time were:
 - `convert_to_daily_data`
     - `DataFrame.apply`
-- `is_price_in_sup_res_zone_vectorized`
+- `_is_price_in_sup_res_zone_vectorized`
     - `stack`
     - `cumsum`
     - `join`
@@ -26,4 +26,5 @@ The method names that were consuming the majority of "unexplained" time were:
 ### Miscellaneous
 
 - Removed unnecessary DataFrame copying operations as most Pandas operations are now implemented with Copy-on-Write (CoW) or an equivalent guarantee.
-- Removed DataFrame sorting operations and made assumption that all input data to strategies have already been sorted by `datetime`.
+- Removed DataFrame sorting operations by making the assumption that all input data to strategies have already been sorted by `datetime`.
+- Reduced the number of data points each strategy has to process for prediction by capping history length depending on each strategy's lookback requirements.

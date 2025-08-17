@@ -11,6 +11,7 @@ import weakref
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Any, Dict, List, Tuple, Type
 
+import numpy as np
 import pandas as pd
 
 from turtle_quant_1.config import CANDLE_UNIT, MAX_WORKERS
@@ -55,6 +56,8 @@ def _run_strategy_process(
     score = strategy.generate_prediction_score(data, symbol)
     # Ensure score is within bounds
     score = max(-1.0, min(1.0, score))
+    if np.isnan(score):
+        raise ValueError(f"Score is NaN for strategy {strategy_name}")
     weighted_score = score * weight
     return strategy_name, score, weighted_score
 

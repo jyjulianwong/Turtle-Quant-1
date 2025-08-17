@@ -1,5 +1,6 @@
 """Moving average crossover strategy implementation."""
 
+import numpy as np
 import pandas as pd
 
 from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS, CANDLE_UNIT
@@ -60,6 +61,8 @@ class MovingAverageCrossover(BaseStrategy):
 
         scaling_factor = 10.0
         score = (sma - lma) * scaling_factor / data["Close"]
+        if np.isnan(score.iloc[-1]):
+            raise ValueError("Last score should not be NaN")
 
         return pd.Series(
             data=score.fillna(0).clip(-1, 1).values,
@@ -75,4 +78,6 @@ class MovingAverageCrossover(BaseStrategy):
             data: The data to use for the strategy.
             symbol: The symbol to use for the strategy.
         """
-        return self.generate_historical_scores(data, symbol).iloc[-1]
+        return self.generate_historical_scores(
+            data.iloc[-(self.lma_candles + 1) :], symbol
+        ).iloc[-1]

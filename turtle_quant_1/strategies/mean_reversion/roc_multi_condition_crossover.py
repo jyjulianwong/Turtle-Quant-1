@@ -1,8 +1,9 @@
 """Rate of Change (RoC) Multi-Condition Crossover strategy with trend filter."""
 
+import numpy as np
 import pandas as pd
 
-from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS
+from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS, CANDLE_UNIT
 from turtle_quant_1.strategies.base import BaseStrategy
 from turtle_quant_1.strategies.helpers.candle_units import convert_units
 from turtle_quant_1.strategies.helpers.helpers import convert_to_daily_data
@@ -109,6 +110,9 @@ class RocMultiConditionCrossover(BaseStrategy):
             )
             crossover_signal = long_mask.astype(int) - short_mask.astype(int)
 
+        if np.isnan(crossover_signal.iloc[-1]):
+            raise ValueError("Last score should not be NaN")
+
         crossover_signal = crossover_signal.reindex(data.index)
         crossover_signal = crossover_signal.bfill().ffill()
 
@@ -129,4 +133,12 @@ class RocMultiConditionCrossover(BaseStrategy):
         Returns:
             A float between -1.0 and +1.0 representing the most recent signal.
         """
-        return self.generate_historical_scores(data, symbol).iloc[-1]
+        n_candles_required = max(self.roc_period, self.signal_period, self.trend_period)
+        return self.generate_historical_scores(
+            # TODO: Using * 2.0 here to give buffer zone for any miscalculations.
+            # This depends on the resampling of the data
+            data.iloc[
+                -(round(convert_units(n_candles_required, "DAY", CANDLE_UNIT) * 2.0)) :
+            ],
+            symbol,
+        ).iloc[-1]

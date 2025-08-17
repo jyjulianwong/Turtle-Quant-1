@@ -1,5 +1,6 @@
 """Bollinger band strategy implementation."""
 
+import numpy as np
 import pandas as pd
 
 from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS, CANDLE_UNIT
@@ -50,8 +51,12 @@ class BollingerBand(BaseStrategy):
         upper = sma + self.n_std * std
         lower = sma - self.n_std * std
 
+        score = (data["Close"] - sma) / (upper - lower)
+        if np.isnan(score.iloc[-1]):
+            raise ValueError("Last score should not be NaN")
+
         return pd.Series(
-            data=((data["Close"] - sma) / (upper - lower)).clip(-1, 1).fillna(0).values,
+            data=score.clip(-1, 1).fillna(0).values,
             index=pd.to_datetime(data["datetime"]),
         )
 
@@ -66,4 +71,6 @@ class BollingerBand(BaseStrategy):
         """
         # Score near +1 -> BUY
         # Score near -1 -> SELL
-        return self.generate_historical_scores(data, symbol).iloc[-1]
+        return self.generate_historical_scores(
+            data.iloc[-(self.lookback_candles + 1) :], symbol
+        ).iloc[-1]
