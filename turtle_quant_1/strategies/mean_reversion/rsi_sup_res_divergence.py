@@ -109,6 +109,8 @@ class RsiSupResDivergence(BaseStrategy):
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """Generate the historical scores.
 
+        NOTE: Assume that the data is sorted by datetime.
+
         Args:
             data: The data to generate the scores from.
             symbol: The symbol to generate the scores for.
@@ -119,8 +121,7 @@ class RsiSupResDivergence(BaseStrategy):
 
         self.validate_data(data)
 
-        data_sorted = data.sort_values("datetime").copy()
-        close = data_sorted["Close"]
+        close = data["Close"]
 
         rsi = self._calc_rsi(close)
         maximas, minimas = self._find_extrema(close)
@@ -131,11 +132,13 @@ class RsiSupResDivergence(BaseStrategy):
 
         return pd.Series(
             data=divergence_signals.clip(-1, 1).values,
-            index=pd.to_datetime(data_sorted["datetime"]),
+            index=pd.to_datetime(data["datetime"]),
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
         """Generate the prediction score.
+
+        NOTE: Assume that the data is sorted by datetime.
 
         Args:
             data: The data to generate the score from.

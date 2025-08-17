@@ -23,4 +23,7 @@ The method names that were consuming the majority of "unexplained" time were:
 
 ## Improvements
 
-TBC.
+### Miscellaneous
+
+- Removed unnecessary DataFrame copying operations as most Pandas operations are now implemented with Copy-on-Write (CoW) or an equivalent guarantee.
+- Removed DataFrame sorting operations and made assumption that all input data to strategies have already been sorted by `datetime`.

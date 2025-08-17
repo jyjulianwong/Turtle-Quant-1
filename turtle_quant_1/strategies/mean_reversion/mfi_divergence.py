@@ -80,13 +80,22 @@ class MfiDivergence(BaseStrategy):
         return signal
 
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
-        """Generate historical MFI divergence scores."""
+        """Generate historical MFI divergence scores.
+
+        NOTE: Assume that the data is sorted by datetime.
+
+        Args:
+            data: The data to use for the strategy.
+            symbol: The symbol to use for the strategy.
+
+        Returns:
+            Score array with each value between -1.0 and +1.0, indexed by datetime
+        """
         self.validate_data(data)
 
-        data_sorted = data.sort_values("datetime").copy()
-        close = data_sorted["Close"]
+        close = data["Close"]
 
-        mfi = self._calc_mfi(data_sorted)
+        mfi = self._calc_mfi(data)
         maximas, minimas = self._find_extrema(close)
         divergence_signals = self._get_divergence_signals(close, mfi, maximas, minimas)
 
@@ -95,9 +104,19 @@ class MfiDivergence(BaseStrategy):
 
         return pd.Series(
             data=divergence_signals.clip(-1, 1).values,
-            index=pd.to_datetime(data_sorted["datetime"]),
+            index=pd.to_datetime(data["datetime"]),
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
-        """Generate the prediction score for the latest candle."""
+        """Generate the prediction score for the latest candle.
+
+        NOTE: Assume that the data is sorted by datetime.
+
+        Args:
+            data: The data to use for the strategy.
+            symbol: The symbol to use for the strategy.
+
+        Returns:
+            Score array with each value between -1.0 and +1.0, indexed by datetime
+        """
         return self.generate_historical_scores(data, symbol).iloc[-1]

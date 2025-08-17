@@ -156,7 +156,7 @@ class BacktestingEngine:
         lookback_hours = self.max_lookback_days * 24
         start_index = max(0, current_index - lookback_hours)
 
-        return data.iloc[start_index : current_index + 1].copy()
+        return data.iloc[start_index : current_index + 1]
 
     def _get_simulation_time_range(
         self, symbols: List[str]
@@ -310,32 +310,30 @@ class BacktestingEngine:
         total_transactions = 0
 
         # Get current prices for all symbols at this timestamp
-        current_prices = {}
+        curr_prices = {}
 
         for i, timestamp in enumerate(simulation_ticks):
             # Generate signals for each symbol
             for symbol in self.symbols:
                 # Get full historical data up to this point for strategy analysis
-                full_data = self.data_cache[symbol].copy()
-                current_data_mask = full_data["datetime"] <= timestamp
-                current_full_data = full_data[current_data_mask]
+                full_data = self.data_cache[symbol]
+                curr_data_mask = full_data["datetime"] <= timestamp
+                curr_data = full_data[curr_data_mask]
 
-                if len(current_full_data) < 2:
+                if len(curr_data) < 2:
                     continue  # Not enough data for strategy
 
                 # Get lookback data for strategy
-                current_index = len(current_full_data) - 1
-                lookback_data = self._get_lookback_data(
-                    symbol, current_index, current_full_data
-                )
+                curr_index = len(curr_data) - 1
+                lookback_data = self._get_lookback_data(symbol, curr_index, curr_data)
 
                 if len(lookback_data) < 2:
                     continue  # Not enough lookback data
 
                 # Get current price (use the closest available price)
-                current_row = current_full_data.iloc[-1]
-                current_price = current_row["Close"]
-                current_prices[symbol] = current_price
+                curr_row = curr_data.iloc[-1]
+                curr_price = curr_row["Close"]
+                curr_prices[symbol] = curr_price
 
                 # Generate signal
                 signal = self.strategy_engine.generate_signal(lookback_data, symbol)
@@ -343,19 +341,19 @@ class BacktestingEngine:
 
                 # Execute signal
                 transaction_executed = self._execute_signal(
-                    symbol, signal, current_price, timestamp
+                    symbol, signal, curr_price, timestamp
                 )
                 if transaction_executed:
                     total_transactions += 1
 
             # Record portfolio value for returns calculation (once per timestamp)
-            if current_prices:
+            if curr_prices:
                 # Check if any take profits or stop losses should be triggered upon every tick
-                self.portfolio.check_take_profit_triggers(current_prices)
-                self.portfolio.check_stop_loss_triggers(current_prices)
+                self.portfolio.check_take_profit_triggers(curr_prices)
+                self.portfolio.check_stop_loss_triggers(curr_prices)
 
                 # Record latest portfolio value
-                portfolio_value = self.portfolio.get_portfolio_value(current_prices)
+                portfolio_value = self.portfolio.get_portfolio_value(curr_prices)
                 self.portfolio_returns.append((timestamp, portfolio_value))
 
             # Log progress periodically

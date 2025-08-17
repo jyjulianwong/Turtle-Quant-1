@@ -33,6 +33,8 @@ class BollingerBand(BaseStrategy):
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """Generate a historical score array for a symbol based on market data.
 
+        NOTE: Assume that the data is sorted by datetime.
+
         Args:
             data: The data to use for the strategy.
             symbol: The symbol to use for the strategy.
@@ -42,24 +44,21 @@ class BollingerBand(BaseStrategy):
         """
         self.validate_data(data)
 
-        data_sorted = data.sort_values("datetime").copy()
+        sma = data["Close"].rolling(self.lookback_candles).mean()
+        std = data["Close"].rolling(self.lookback_candles).std()
 
-        ma = data_sorted["Close"].rolling(self.lookback_candles).mean()
-        std = data_sorted["Close"].rolling(self.lookback_candles).std()
-
-        upper = ma + self.n_std * std
-        lower = ma - self.n_std * std
+        upper = sma + self.n_std * std
+        lower = sma - self.n_std * std
 
         return pd.Series(
-            data=((data_sorted["Close"] - ma) / (upper - lower))
-            .clip(-1, 1)
-            .fillna(0)
-            .values,
-            index=pd.to_datetime(data_sorted["datetime"]),
+            data=((data["Close"] - sma) / (upper - lower)).clip(-1, 1).fillna(0).values,
+            index=pd.to_datetime(data["datetime"]),
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
         """Generate a score for the strategy.
+
+        NOTE: Assume that the data is sorted by datetime.
 
         Args:
             data: The data to use for the strategy.

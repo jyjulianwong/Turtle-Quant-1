@@ -68,6 +68,8 @@ class BaseStrategy(ABC):
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """Generate a historical score array for a symbol based on market data.
 
+        NOTE: Assume that the data is sorted by datetime.
+
         Args:
             data: DataFrame with OHLCV data containing columns:
                   ['datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
@@ -82,6 +84,8 @@ class BaseStrategy(ABC):
     @abstractmethod
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
         """Generate the latest score for prediction for a symbol based on market data.
+
+        NOTE: Assume that the data is sorted by datetime.
 
         Args:
             data: DataFrame with OHLCV data containing columns:

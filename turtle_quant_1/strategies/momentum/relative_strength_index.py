@@ -32,6 +32,8 @@ class RelativeStrengthIndex(BaseStrategy):
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """Generate a historical score array for a symbol based on market data.
 
+        NOTE: Assume that the data is sorted by datetime.
+
         Args:
             data: DataFrame with OHLCV data.
             symbol: The symbol being analyzed.
@@ -41,8 +43,7 @@ class RelativeStrengthIndex(BaseStrategy):
         """
         self.validate_data(data)
 
-        data_sorted = data.sort_values("datetime").copy()
-        data_resampled = convert_to_daily_data(data_sorted)
+        data_resampled = convert_to_daily_data(data)
 
         delta = data_resampled["Close"].diff()
         gain = delta.clip(lower=0)
@@ -54,16 +55,18 @@ class RelativeStrengthIndex(BaseStrategy):
         rs = mean_gain / (mean_loss + 1e-9)  # Prevent division by zero
         rsi = 100 - (100 / (1 + rs))  # The standard RSI formula
 
-        rsi = rsi.reindex(data_sorted.index)
+        rsi = rsi.reindex(data.index)
         rsi = rsi.bfill().ffill()
 
         return pd.Series(
             data=((50 - rsi) / 50).clip(-1, 1).fillna(0).values,  # Rescale to -1 to +1
-            index=pd.to_datetime(data_sorted["datetime"]),
+            index=pd.to_datetime(data["datetime"]),
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
         """Generate a score for the strategy.
+
+        NOTE: Assume that the data is sorted by datetime.
 
         Args:
             data: The data to use for the strategy.

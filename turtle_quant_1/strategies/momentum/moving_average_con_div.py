@@ -47,6 +47,8 @@ class MovingAverageConDiv(BaseStrategy):
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """Generate a historical score array for a symbol based on MACD.
 
+        NOTE: Assume that the data is sorted by datetime.
+
         This strategy works best when resampled to daily data.
         Refer to: https://www.investopedia.com/terms/m/macd.asp
 
@@ -59,8 +61,7 @@ class MovingAverageConDiv(BaseStrategy):
         """
         self.validate_data(data)
 
-        data_sorted = data.sort_values("datetime").copy()
-        data_resampled = convert_to_daily_data(data_sorted)
+        data_resampled = convert_to_daily_data(data)
 
         # Calculate EMAs
         ema_fast = (
@@ -81,16 +82,18 @@ class MovingAverageConDiv(BaseStrategy):
         )
         score = macd_hist * scaling_factor / data_resampled["Close"]
 
-        score = score.reindex(data_sorted.index)
+        score = score.reindex(data.index)
         score = score.bfill().ffill()
 
         return pd.Series(
             data=score.fillna(0).clip(-1, 1).values,
-            index=pd.to_datetime(data_sorted["datetime"]),
+            index=pd.to_datetime(data["datetime"]),
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
         """Generate a prediction score based on the latest MACD values.
+
+        NOTE: Assume that the data is sorted by datetime.
 
         Args:
             data: The data to use for the strategy.

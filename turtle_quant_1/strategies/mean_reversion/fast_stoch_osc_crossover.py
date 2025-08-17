@@ -40,6 +40,8 @@ class FastStochOscCrossover(BaseStrategy):
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """Generate historical scores based on %K/%D crossovers.
 
+        NOTE: Assume that the data is sorted by datetime.
+
         Args:
             data: DataFrame with OHLCV data.
             symbol: The symbol being analyzed.
@@ -49,8 +51,7 @@ class FastStochOscCrossover(BaseStrategy):
         """
         self.validate_data(data)
 
-        data_sorted = data.sort_values("datetime").copy()
-        data_resampled = convert_to_daily_data(data_sorted)
+        data_resampled = convert_to_daily_data(data)
 
         # Calculate %K
         lowest_low = data_resampled["Low"].rolling(self.k_period).min()
@@ -67,16 +68,18 @@ class FastStochOscCrossover(BaseStrategy):
             percent_k < percent_d
         ).astype(int)
 
-        crossover_signal = crossover_signal.reindex(data_sorted.index)
+        crossover_signal = crossover_signal.reindex(data.index)
         crossover_signal = crossover_signal.bfill().ffill()
 
         return pd.Series(
             data=crossover_signal.fillna(0).clip(-1, 1).values,
-            index=pd.to_datetime(data_sorted["datetime"]),
+            index=pd.to_datetime(data["datetime"]),
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
         """Generate the latest prediction score.
+
+        NOTE: Assume that the data is sorted by datetime.
 
         Args:
             data: The data to use for the strategy.
