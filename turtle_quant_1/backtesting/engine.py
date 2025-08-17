@@ -19,7 +19,7 @@ from turtle_quant_1.config import (
 )
 from turtle_quant_1.data_processing.processor import DataProcessor
 from turtle_quant_1.strategies.base import BaseStrategyEngine, Signal, SignalAction
-from turtle_quant_1.strategies.helpers.multiprocessing import ProcessSafeCache
+from turtle_quant_1.strategies.helpers.multiprocessing import FileCache
 from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
 
 # Set up logging
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 # Global data cache instance for backtesting
-_global_data_cache = ProcessSafeCache()
+_global_data_cache = FileCache()
 
 
 def get_global_data_cache():

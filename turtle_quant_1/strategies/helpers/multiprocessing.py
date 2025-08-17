@@ -8,23 +8,125 @@ import pickle
 import tempfile
 import threading
 import time
+from abc import ABC, abstractmethod
+from multiprocessing import Lock, shared_memory
+from multiprocessing.synchronize import Lock as LockType
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-CACHE_DIR_PATH = Path(os.path.join(tempfile.gettempdir(), "turtle-quant-1"))
+
+class BaseCache(ABC):
+    """Base class for process-safe caches."""
+
+    @abstractmethod
+    def get(self, key: str) -> Any:
+        """Get a value from the cache."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def set(self, key: str, value: Any) -> None:
+        """Set a value in the cache."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def contains(self, key: str) -> bool:
+        """Check if a key exists in the cache."""
+        raise NotImplementedError()
 
 
-class ProcessSafeCache:
+class SharedMemoryCache(BaseCache):
+    """A dict-like cache using shared_memory + serialization."""
+
+    def __init__(
+        self,
+        size_mb: int = 1,
+        name: str | None = None,
+        lock: LockType | None = None,
+    ):
+        """
+        :param size_mb: Number of bytes to allocate for shared memory.
+        :param name: Optional name of existing shared memory block (to attach).
+        :param lock: Optional Lock for synchronization. A new one will be created if None.
+        """
+        self.size = size_mb * 1024 * 1024
+        self.lock = lock or Lock()
+
+        if name is None:
+            # Create new shared memory block
+            self.shm = shared_memory.SharedMemory(create=True, size=self.size)
+            # Initialize with empty dict
+            self._write_dict({})
+        else:
+            # Attach to existing shared memory block
+            self.shm = shared_memory.SharedMemory(name=name)
+
+    @property
+    def name(self) -> str:
+        """Return the name of the underlying shared memory block."""
+        return self.shm.name
+
+    def _read_dict(self) -> dict:
+        """Deserialize dict from shared memory."""
+        raw = self.shm.buf.tobytes()
+        try:
+            return pickle.loads(raw.rstrip(b"\x00"))  # strip padding
+        except Exception:
+            return {}
+
+    def _write_dict(self, d: dict):
+        """Serialize dict into shared memory."""
+        blob = pickle.dumps(d)
+        if len(blob) > self.size:
+            raise MemoryError(
+                f"Cache too large for shared memory ({len(blob)} > {self.size})"
+            )
+        # Write blob + pad remaining space
+        self.shm.buf[: len(blob)] = blob
+        self.shm.buf[len(blob) :] = b"\x00" * (self.size - len(blob))
+
+    def get(self, key: str) -> Any:
+        with self.lock:
+            d = self._read_dict()
+            return d.get(key, None)
+
+    def set(self, key: str, value: Any) -> None:
+        with self.lock:
+            d = self._read_dict()
+            d[key] = value
+            self._write_dict(d)
+
+    def contains(self, key: str) -> bool:
+        with self.lock:
+            d = self._read_dict()
+            return key in d
+
+    def detach(self):
+        """Detaches the current Python process from the shared memory block.
+
+        NOTE: This should be called in each process.
+        """
+        self.shm.close()
+
+    def free(self):
+        """Free the shared memory block (only once, after all processes are done).
+
+        NOTE: This should be called only once, after all processes are done.
+        """
+        self.shm.unlink()
+
+
+class FileCache:
     """Process-safe cache using file-based storage with proper locking."""
 
-    REF_COUNT_FILE_PATH = CACHE_DIR_PATH / "cache_rc.txt"
+    _CACHE_DIR_PATH = Path(os.path.join(tempfile.gettempdir(), "turtle-quant-1"))
+    _REF_COUNT_FILE_PATH = _CACHE_DIR_PATH / "cache_rc.txt"
 
     def __init__(self):
         """Initialize the cache with a directory for storage."""
-        self.cache_dir_path = CACHE_DIR_PATH
+        self.cache_dir_path = self._CACHE_DIR_PATH
         self.cache_dir_path.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Using temporary cache directory '{self.cache_dir_path}'...")
 
@@ -71,15 +173,15 @@ class ProcessSafeCache:
             self._release_file_lock(fd)
 
     def _read_ref_count(self):
-        if not self.REF_COUNT_FILE_PATH.exists():
+        if not self._REF_COUNT_FILE_PATH.exists():
             return 0
         try:
-            return int(self.REF_COUNT_FILE_PATH.read_text().strip())
+            return int(self._REF_COUNT_FILE_PATH.read_text().strip())
         except Exception:
             return 0
 
     def _write_ref_count(self, count):
-        self.REF_COUNT_FILE_PATH.write_text(str(count))
+        self._REF_COUNT_FILE_PATH.write_text(str(count))
 
     def _clear_cache_dir(self):
         size = 0
@@ -127,7 +229,7 @@ class ProcessSafeCache:
     # API methods
     # ---------------------------------
 
-    def get(self, key: str):
+    def get(self, key: str) -> Any:
         """Get a value from the cache."""
         # First check local cache
         with self._local_lock:
@@ -156,7 +258,7 @@ class ProcessSafeCache:
 
         return None
 
-    def set(self, key: str, value: Any):
+    def set(self, key: str, value: Any) -> None:
         """Set a value in the cache."""
         cache_file = self._get_cache_file_path(key)
         lock_fd = None

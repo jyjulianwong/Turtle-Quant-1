@@ -7,16 +7,16 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MultiLabelBinarizer
 
-from turtle_quant_1.strategies.helpers.multiprocessing import ProcessSafeCache
+from turtle_quant_1.strategies.helpers.multiprocessing import FileCache
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 # Global SupResIndicator instance
-_global_sup_res_indicator = ProcessSafeCache()
+_global_sup_res_indicator = FileCache()
 
 # Global cache instance
-_global_cache = ProcessSafeCache()
+_global_cache = FileCache()
 
 
 def get_global_cache():
