@@ -6,10 +6,8 @@ import numpy as np
 import pandas as pd
 import scipy.signal as sp
 
-from turtle_quant_1.strategies.helpers.helpers import (
-    convert_to_weekly_data,
-    round_to_sig_fig,
-)
+from turtle_quant_1.strategies.helpers.data_units import DataUnitConverter
+from turtle_quant_1.strategies.helpers.helpers import round_to_sig_fig
 
 from .base import BaseSupResStrategy
 
@@ -216,7 +214,7 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
         if not all(col in data.columns for col in required_cols):
             raise ValueError(f"Data must contain {required_cols} columns")
 
-        data_resampled = convert_to_weekly_data(data)
+        data_resampled = DataUnitConverter.convert_to_weekly_data(symbol, data)
         level_values = self._calc_sup_res_levels(data_resampled)
 
         # Create output DataFrame with 1-to-1 mapping to original data

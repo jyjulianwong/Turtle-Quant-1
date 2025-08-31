@@ -6,7 +6,7 @@ import pandas as pd
 from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS, CANDLE_UNIT
 from turtle_quant_1.strategies.base import BaseStrategy
 from turtle_quant_1.strategies.helpers.candle_units import convert_units
-from turtle_quant_1.strategies.helpers.helpers import convert_to_daily_data
+from turtle_quant_1.strategies.helpers.data_units import DataUnitConverter
 
 
 class RocMultiConditionCrossover(BaseStrategy):
@@ -81,7 +81,7 @@ class RocMultiConditionCrossover(BaseStrategy):
         """
         self.validate_data(data)
 
-        data_resampled = convert_to_daily_data(data)
+        data_resampled = DataUnitConverter.convert_to_daily_data(symbol, data)
 
         # === Step 1: Compute RoC and smoothed signal line ===
         roc = (
