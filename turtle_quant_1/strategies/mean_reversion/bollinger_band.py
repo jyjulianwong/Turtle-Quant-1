@@ -9,7 +9,12 @@ from turtle_quant_1.strategies.helpers.candle_units import convert_units
 
 
 class BollingerBand(BaseStrategy):
-    """A strategy that uses the Bollinger bands to generate buy and sell signals."""
+    """A strategy that uses the Bollinger bands to generate buy and sell signals.
+
+    Leading / Lagging: Lagging in construction. Leading in interpretation.
+    Lag period (in candles): (`lookback_candles` - 1) / 2
+    Effect: Delay in recognizing that price has deviated far enough from equilibrium.
+    """
 
     def __init__(self, lookback_candles: int = 180, n_std: int = 3):
         """Initialize the Bollinger band strategy.

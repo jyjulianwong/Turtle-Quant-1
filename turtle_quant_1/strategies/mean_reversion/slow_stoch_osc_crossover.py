@@ -14,6 +14,10 @@ class SlowStochOscCrossover(BaseStrategy):
 
     Can be intuitively interpreted as whether a stock is overbought or oversold.
     Refer to: https://www.investopedia.com/terms/s/stochasticoscillator.asp
+
+    Leading / Lagging: Lagging in construction. Leading in interpretation.
+    Lag period (in candles): (`k_period` - 1) / 2 + (`d_period` - 1) / 2 + (`k_smooth` - 1) / 2
+    Effect: Delay in recognizing that price has deviated far enough from equilibrium.
     """
 
     def __init__(

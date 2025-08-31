@@ -23,6 +23,10 @@ class FastStochOscCrossover(BaseStrategy):
     ):
         """Initialize the Stochastic Oscillator strategy.
 
+        Leading / Lagging: Lagging in construction. Leading in interpretation.
+        Lag period (in candles): (`k_period` - 1) / 2 + (`d_period` - 1) / 2
+        Effect: Delay in recognizing that price has deviated far enough from equilibrium.
+
         Args:
             k_period: The number of candles to calculate %K.
             d_period: The number of candles to smooth %K into %D.

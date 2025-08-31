@@ -10,7 +10,12 @@ from turtle_quant_1.strategies.helpers.helpers import convert_to_daily_data
 
 
 class MovingAverageConDiv(BaseStrategy):
-    """Moving average convergence divergence strategy implementation."""
+    """Moving average convergence divergence strategy implementation.
+
+    Leading / Lagging: Lagging when converging. Leading when diverging.
+    Lag period (in candles): (`slow_candles` - 1) / 2 - (`fast_candles` - 1) / 2 + (`signal_candles` - 1) / 2
+    Effect: Delay in recognizing that a new trend has begun.
+    """
 
     def __init__(
         self,

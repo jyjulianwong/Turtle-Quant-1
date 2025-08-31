@@ -10,7 +10,12 @@ from turtle_quant_1.strategies.helpers.helpers import convert_to_daily_data
 
 
 class RelativeStrengthIndex(BaseStrategy):
-    """A strategy that uses the RSI to generate buy and sell signals."""
+    """A strategy that uses the RSI to generate buy and sell signals.
+
+    Leading / Lagging: Lagging in construction. Leading in interpretation.
+    Lag period (in candles): (`lookback_candles` - 1) / 2
+    Effect: Delay in recognizing that a new trend has begun.
+    """
 
     def __init__(self, lookback_candles: int = 14):
         """Initialize the RSI strategy.

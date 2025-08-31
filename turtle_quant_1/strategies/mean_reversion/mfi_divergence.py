@@ -13,6 +13,10 @@ class MfiDivergence(BaseStrategy):
     def __init__(self, mfi_period: int = 14, local_extrema_window: int = 5):
         """Initialize the MFI Divergence strategy.
 
+        Leading / Lagging: Lagging in construction. Leading in interpretation.
+        Lag period (in candles): (`mfi_period` - 1) / 2
+        Effect: Delay in recognizing that price has deviated far enough from equilibrium.
+
         Args:
             mfi_period: Number of candles for MFI calculation.
             local_extrema_window: Window for local maxima/minima detection.

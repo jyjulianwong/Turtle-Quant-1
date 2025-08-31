@@ -9,7 +9,12 @@ from turtle_quant_1.strategies.helpers.candle_units import convert_units
 
 
 class MovingAverageCrossover(BaseStrategy):
-    """A strategy that uses moving averages to generate buy and sell signals."""
+    """A strategy that uses moving averages to generate buy and sell signals.
+
+    Leading / Lagging: Lagging
+    Lag period (in candles): (`lma_candles` - 1) / 2 - (`sma_candles` - 1) / 2
+    Effect: Delay in recognizing that a new trend has begun.
+    """
 
     def __init__(
         self,

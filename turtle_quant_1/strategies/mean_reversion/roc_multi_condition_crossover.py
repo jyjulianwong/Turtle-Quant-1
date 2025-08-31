@@ -20,6 +20,10 @@ class RocMultiConditionCrossover(BaseStrategy):
                     short signals if price < SMA(trend_period).
     The filters are put in place to mute signal noise, thus reduce false signals.
 
+    Leading / Lagging: TODO
+    Lag period (in candles): TODO
+    Effect: TODO
+
     Refer to: https://www.investopedia.com/terms/r/rateofchange.asp
     """
 

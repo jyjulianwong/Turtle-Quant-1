@@ -13,6 +13,10 @@ class RsiSupResDivergence(BaseStrategy):
     def __init__(self, lookback_candles: int = 60, local_extrema_window: int = 5):
         """Initialize the RSI strategy.
 
+        Leading / Lagging: Lagging in construction. Leading in interpretation.
+        Lag period (in candles): (`lookback_candles` - 1) / 2
+        Effect: Delay in recognizing that price has deviated far enough from equilibrium.
+
         Args:
             lookback_candles: The number of periods to use for the RSI.
             local_extrema_window: The size of the window for the local maxima and minima.
