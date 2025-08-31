@@ -19,6 +19,7 @@ from turtle_quant_1.config import (
 )
 from turtle_quant_1.data_processing.processor import DataProcessor
 from turtle_quant_1.strategies.base import BaseStrategyEngine, Signal, SignalAction
+from turtle_quant_1.strategies.helpers.data_units import DataUnitConverter
 from turtle_quant_1.strategies.helpers.multiprocessing import FileCache
 from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
 
@@ -81,6 +82,11 @@ class BacktestingEngine:
                 cache.set(symbol, data)
 
             self.data_cache[symbol] = data
+
+            # This reduces duplicated calculations across all DataUnitConverter instances,
+            # because data conversion is a static utility method.
+            DataUnitConverter.preload_global_instance_cache(symbol, data, "daily")
+            DataUnitConverter.preload_global_instance_cache(symbol, data, "weekly")
 
             # This reduces duplicated calculations across all SupResIndicator instances,
             # because the cache is a global singleton.
@@ -297,7 +303,6 @@ class BacktestingEngine:
         simulation_ticks = self._generate_simulation_ticks(
             simulation_start, simulation_end
         )
-        simulation_ticks = simulation_ticks[:10]
 
         logger.info(
             f"Generated {len(simulation_ticks)} simulation ticks for simulation"

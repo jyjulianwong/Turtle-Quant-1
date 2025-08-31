@@ -1,9 +1,51 @@
+import logging
+from typing import Literal
+
 import pandas as pd
+
+from turtle_quant_1.strategies.helpers.multiprocessing import FileCache
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Global cache instance
+_global_cache = FileCache()
+
+
+def get_global_cache():
+    """Get the global cache instance."""
+    return _global_cache
 
 
 class DataUnitConverter:
-    @staticmethod
-    def convert_to_daily_data(symbol: str, data: pd.DataFrame) -> pd.DataFrame:
+    @classmethod
+    def _get_cache_key(
+        cls, symbol: str, freq: Literal["daily", "weekly", "yearly"]
+    ) -> str:
+        return f"{symbol}_DataUnitConverter_{freq}"
+
+    @classmethod
+    def preload_global_instance_cache(
+        cls, symbol: str, data: pd.DataFrame, freq: Literal["daily", "weekly", "yearly"]
+    ) -> None:
+        cache_key = cls._get_cache_key(symbol, freq)
+        conversion_func = None
+        if freq == "daily":
+            conversion_func = cls.convert_to_daily_data
+        if freq == "weekly":
+            conversion_func = cls.convert_to_weekly_data
+        if freq == "yearly":
+            conversion_func = cls.convert_to_yearly_data
+        if conversion_func is None:
+            raise ValueError(f"Invalid frequency provided: {freq}")
+
+        agg_data = conversion_func(symbol, data)
+        get_global_cache().set(cache_key, agg_data)
+
+        logger.info(f"Preloaded {freq} OHLCV data for {symbol} into cache")
+
+    @classmethod
+    def convert_to_daily_data(cls, symbol: str, data: pd.DataFrame) -> pd.DataFrame:
         """Convert OHLC data to daily data.
 
         The daily data will have the following columns:
@@ -29,6 +71,13 @@ class DataUnitConverter:
             return pd.DataFrame(
                 columns=["datetime", "Open", "High", "Low", "Close", "Volume"]
             )
+
+        # Check if data exists in cache
+        cache_key = cls._get_cache_key(symbol, "daily")
+        cached_data = get_global_cache().get(cache_key)
+        if cached_data is not None:
+            logger.debug(f"{cache_key} already exists. Using cached data...")
+            return cached_data.loc[cached_data.index.intersection(data.index)]
 
         # Ensure datetime column is datetime type
         data = data.copy()
@@ -62,8 +111,8 @@ class DataUnitConverter:
 
         return daily_df
 
-    @staticmethod
-    def convert_to_weekly_data(symbol: str, data: pd.DataFrame) -> pd.DataFrame:
+    @classmethod
+    def convert_to_weekly_data(cls, symbol: str, data: pd.DataFrame) -> pd.DataFrame:
         """Convert OHLC data to weekly data.
 
         The weekly data will have the following columns:
@@ -89,6 +138,13 @@ class DataUnitConverter:
             return pd.DataFrame(
                 columns=["datetime", "Open", "High", "Low", "Close", "Volume"]
             )
+
+        # Check if data exists in cache
+        cache_key = cls._get_cache_key(symbol, "weekly")
+        cached_data = get_global_cache().get(cache_key)
+        if cached_data is not None:
+            logger.debug(f"{cache_key} already exists. Using cached data...")
+            return cached_data.loc[cached_data.index.intersection(data.index)]
 
         # Ensure datetime column is datetime type
         data = data.copy()
@@ -123,6 +179,6 @@ class DataUnitConverter:
 
         return weekly_df
 
-    @staticmethod
-    def convert_to_yearly_data(symbol: str, data: pd.DataFrame) -> pd.DataFrame:
+    @classmethod
+    def convert_to_yearly_data(cls, symbol: str, data: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError()

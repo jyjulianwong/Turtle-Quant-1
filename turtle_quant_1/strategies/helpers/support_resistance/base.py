@@ -104,14 +104,14 @@ class SupResIndicator:
             symbol: The symbol to get the support and resistance data for.
             data: The data to get the support and resistance data for.
         """
-        cache_key = f"{symbol}_{strategy.__class__.__name__}"
+        cache_key = f"{symbol}_{self.__class__.__name__}_{strategy.__class__.__name__}"
         cache = get_global_cache()
 
         # Check if data exists in cache
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             logger.debug(
-                f"GLOBAL_SUP_RES_DATA_CACHE for {cache_key} already exists. Using cached data."
+                f"GLOBAL_SUP_RES_DATA_CACHE for {cache_key} already exists. Using cached data..."
             )
             return cached_data
 
