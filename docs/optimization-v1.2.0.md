@@ -13,11 +13,11 @@ The program profiling notebook ([notebooks/snakeviz.ipynb](notebooks/snakeviz.ip
 The method names that were consuming the majority of "unexplained" time were:
 - `convert_to_daily_data`
     - `DataFrame.apply`
-- `_is_price_in_sup_res_zone_vectorized`
+- `_is_price_in_sup_res_zone_vecd`
     - `stack`
     - `cumsum`
     - `join`
-- `get_wick_direction_vectorized`
+- `get_wick_direction_vecd`
 - `_get_divergence_signals`
     - `__itemget__`
 

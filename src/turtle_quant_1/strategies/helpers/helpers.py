@@ -94,7 +94,7 @@ def get_wick_direction(row: pd.Series) -> int:
     return 0  # "neutral"
 
 
-def get_wick_directions_vectorized(data: pd.DataFrame) -> pd.Series:
+def get_wick_directions_vecd(data: pd.DataFrame) -> pd.Series:
     """Vectorized version of get_wick_direction for entire DataFrame.
 
     Args:

@@ -14,9 +14,7 @@ class EngulfingPattern(BaseStrategy):
 
         self.sup_res_indicator = SupResIndicator()
 
-    def _get_score_for_candles_vectorized(
-        self, data: pd.DataFrame, symbol: str
-    ) -> pd.Series:
+    def _get_score_for_candles_vecd(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """Vectorized detection of engulfing patterns."""
         # Shift data to get previous candle
         prev_open = data["Open"].shift(1)
@@ -41,7 +39,7 @@ class EngulfingPattern(BaseStrategy):
         )
 
         sup_res_zones = (
-            self.sup_res_indicator.is_sup_res_zone_vectorized(data, symbol)
+            self.sup_res_indicator.is_sup_res_zone_vecd(data, symbol)
             .astype(float)
             .fillna(0.0)
         )
@@ -50,7 +48,7 @@ class EngulfingPattern(BaseStrategy):
         return (bullish.astype(float) - bearish.astype(float)) * sup_res_zones
 
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
-        scores = self._get_score_for_candles_vectorized(data, symbol)
+        scores = self._get_score_for_candles_vecd(data, symbol)
         # Check for any occurrence of the pattern in last 6 candles
         scores = (
             scores.fillna(0)
@@ -64,7 +62,7 @@ class EngulfingPattern(BaseStrategy):
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
-        scores = self._get_score_for_candles_vectorized(data, symbol)
+        scores = self._get_score_for_candles_vecd(data, symbol)
         # Check for any occurrence of the pattern in last 6 candles
         scores = (
             scores.fillna(0)

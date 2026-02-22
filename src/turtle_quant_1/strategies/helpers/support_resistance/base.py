@@ -123,81 +123,7 @@ class SupResIndicator:
         cache.set(cache_key, levels_data)
         return levels_data
 
-    def _is_price_in_sup_res_zone(
-        self,
-        historical_data: pd.DataFrame,
-        timestamp: pd.Timestamp,
-        levels_df: pd.DataFrame,
-        threshold: float,
-    ) -> bool:
-        """Check if current price is near any support/resistance levels.
-
-        Args:
-            historical_data: Historical data up to current point.
-            timestamp: Current timestamp in the data.
-            levels_df: DataFrame with support/resistance levels.
-            threshold: Price proximity threshold (as fraction of price).
-
-        Returns:
-            True if price is near any level, False otherwise.
-        """
-        if len(levels_df) == 0:
-            return False
-
-        # Find the row that corresponds to the current timestamp
-        levels_df_copy = levels_df.copy()
-        levels_df_copy["datetime"] = pd.to_datetime(levels_df_copy["datetime"])
-
-        # Filter levels that match the current timestamp (or closest available)
-        time_mask = levels_df_copy["datetime"] <= timestamp
-        if not time_mask.any():
-            return False
-
-        # Get the most recent levels up to the current timestamp
-        relevant_levels_df = levels_df_copy[time_mask]
-        latest_row = relevant_levels_df.iloc[-1]  # Get the most recent row
-
-        # Extract level values from the latest row
-        level_values = latest_row["level_values"]
-
-        # Handle case where level_values might be empty or None
-        if level_values is None:
-            return False
-        if isinstance(level_values, (list, tuple)) and len(level_values) == 0:
-            return False
-        if hasattr(level_values, "size") and level_values.size == 0:
-            return False
-
-        # Handle NumPy array format (new fixed-size arrays)
-        if isinstance(level_values, np.ndarray):
-            # Filter out NaN values from the fixed-size array
-            relevant_levels_array = level_values[~np.isnan(level_values)]
-        elif isinstance(level_values, list):
-            # Legacy list format support
-            filtered_values = [
-                float(x) for x in level_values if x is not None and not pd.isna(x)
-            ]
-            if len(filtered_values) == 0:
-                return False
-            relevant_levels_array = np.array(filtered_values)
-        else:
-            if pd.isna(level_values):
-                return False
-            relevant_levels_array = np.array([float(level_values)])
-
-        if len(relevant_levels_array) == 0:
-            return False
-
-        # Vectorized distance calculation and threshold check
-        price = historical_data[historical_data["datetime"] == timestamp]["Close"].iloc[
-            0
-        ]
-        price_threshold = price * threshold
-        distances = np.abs(relevant_levels_array - price)
-        # pyrefly: ignore
-        return np.any(distances <= price_threshold)
-
-    def _is_price_in_sup_res_zone_vectorized(
+    def _is_price_in_sup_res_zone_vecd(
         self,
         data: pd.DataFrame,
         levels_df: pd.DataFrame,
@@ -251,97 +177,7 @@ class SupResIndicator:
 
         return _levels_df["is_in_zone"]
 
-    def is_sup_res_zone(
-        self,
-        data: pd.DataFrame,
-        timestamp: pd.Timestamp,
-        symbol: str,
-        min_consensus: float = 0.2,
-    ) -> bool:
-        """Check if the current price is in a support or resistance zone.
-
-        Args:
-            data: The data to check, must contain 'High', 'Low', 'Close' columns.
-            timestamp: The timestamp of the current price to check.
-            symbol: The symbol being analyzed.
-            min_consensus: Minimum fraction of strategies that must agree (0.0 to 1.0).
-
-        Returns:
-            True if the current price is in a support or resistance zone, False otherwise.
-        """
-        if (
-            timestamp > data["datetime"].iloc[-1]
-            or timestamp < data["datetime"].iloc[0]
-        ):
-            raise ValueError(
-                f"Timestamp {timestamp} is out of bounds for data of length {len(data)}"
-            )
-
-        n_strategies = len(self.strategies)
-        if n_strategies == 0:
-            raise ValueError("No strategies provided")
-
-        # Early exit if minimum consensus cannot be met
-        n_required_agreements = int(np.ceil(min_consensus * n_strategies))
-        if n_required_agreements == 0:
-            return True  # If min_consensus is very low, always return True
-
-        # Get data up to current point - Don't look into the future
-        historical_data = data.copy()
-        if len(historical_data) < 2:
-            return False  # Not enough data to determine support/resistance
-
-        # Count how many strategies detect a support/resistance zone
-        n_agreements = 0
-        max_possible_agreements = n_strategies
-
-        for strategy in self.strategies:
-            try:
-                # Generate levels for this strategy
-                levels_df = self._load_sup_res_levels_data(
-                    strategy, symbol, historical_data
-                )
-                if len(levels_df) == 0:
-                    max_possible_agreements -= 1
-                    # Early exit if consensus can't be reached even with remaining strategies
-                    if (
-                        n_agreements + (max_possible_agreements - n_agreements)
-                        < n_required_agreements
-                    ):
-                        return False
-                    continue
-
-                # Check if current price is near any support/resistance levels
-                if self._is_price_in_sup_res_zone(
-                    historical_data,
-                    timestamp,
-                    levels_df,
-                    strategy.sup_res_zone_threshold,
-                ):
-                    n_agreements += 1
-                    # Early exit if minimum consensus is already met
-                    if n_agreements >= n_required_agreements:
-                        return True
-
-            except Exception as e:
-                # Skip strategy if it fails (e.g., not enough data)
-                logger.error(
-                    f"Error calculating support/resistance levels for strategy {strategy.__class__.__name__}: {e}"
-                )
-                max_possible_agreements -= 1
-                # Early exit if consensus can't be reached even with remaining strategies
-                if (
-                    n_agreements + (max_possible_agreements - n_agreements)
-                    < n_required_agreements
-                ):
-                    return False
-                continue
-
-        # Calculate consensus
-        consensus_ratio = n_agreements / n_strategies if n_strategies > 0 else 0
-        return consensus_ratio >= min_consensus
-
-    def is_sup_res_zone_vectorized(
+    def is_sup_res_zone_vecd(
         self,
         data: pd.DataFrame,
         symbol: str,
@@ -385,7 +221,7 @@ class SupResIndicator:
                     continue
 
                 # Vectorized processing for this strategy
-                strategy_zones = self._is_price_in_sup_res_zone_vectorized(
+                strategy_zones = self._is_price_in_sup_res_zone_vecd(
                     data, levels_df, strategy.sup_res_zone_threshold
                 )
 

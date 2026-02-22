@@ -5,7 +5,7 @@ from turtle_quant_1.strategies.base import BaseStrategy
 
 
 class MomentumPattern(BaseStrategy):
-    def _is_sideways_region_vectorized(
+    def _is_sideways_region_vecd(
         self, data: pd.DataFrame, window: int = 20, flat_threshold: float = 0.015
     ) -> pd.Series:
         """Vectorized check if the market is in a sideways pattern for all points."""
@@ -15,9 +15,7 @@ class MomentumPattern(BaseStrategy):
         ratio: pd.Series = flat_range / mean_price
         return ratio < flat_threshold
 
-    def _get_score_for_candles_vectorized(
-        self, data: pd.DataFrame, symbol: str
-    ) -> pd.Series:
+    def _get_score_for_candles_vecd(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """Vectorized detection of momentum patterns.
 
         This checks if candles have strong bodies and if the market is sideways.
@@ -34,7 +32,7 @@ class MomentumPattern(BaseStrategy):
         has_strong_body = has_strong_body.fillna(False)
 
         # Detect sideways market for each candle using vectorized method
-        is_sideways = self._is_sideways_region_vectorized(data)
+        is_sideways = self._is_sideways_region_vecd(data)
 
         # Calculate direction of the candle (bullish=1, bearish=-1)
         candle_direction = np.sign(data["Close"] - data["Open"])
@@ -45,7 +43,7 @@ class MomentumPattern(BaseStrategy):
         return pattern_scores.astype(float) * candle_direction
 
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
-        scores = self._get_score_for_candles_vectorized(data, symbol)
+        scores = self._get_score_for_candles_vecd(data, symbol)
         # Check for any occurrence of the pattern in last 6 candles
         scores = scores.fillna(0).rolling(window=6).sum().clip(-1, 1)
 
@@ -54,7 +52,7 @@ class MomentumPattern(BaseStrategy):
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
-        scores = self._get_score_for_candles_vectorized(data, symbol)
+        scores = self._get_score_for_candles_vecd(data, symbol)
         # Check for any occurrence of the pattern in last 6 candles
         scores = scores.fillna(0).rolling(window=6).sum().clip(-1, 1)
 

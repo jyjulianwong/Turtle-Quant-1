@@ -2,7 +2,7 @@ import pandas as pd
 
 from turtle_quant_1.strategies.base import BaseStrategy
 from turtle_quant_1.strategies.helpers.candle_units import CANDLE_UNIT, convert_units
-from turtle_quant_1.strategies.helpers.helpers import get_wick_directions_vectorized
+from turtle_quant_1.strategies.helpers.helpers import get_wick_directions_vecd
 from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
 
 
@@ -15,16 +15,14 @@ class MultiplePattern(BaseStrategy):
 
         self.sup_res_indicator = SupResIndicator()
 
-    def _get_score_for_candles_vectorized(
-        self, data: pd.DataFrame, symbol: str
-    ) -> pd.Series:
+    def _get_score_for_candles_vecd(self, data: pd.DataFrame, symbol: str) -> pd.Series:
         """Vectorized detection of multiple patterns.
 
         This checks if 3 consecutive candles have the same direction and if they are
         in a support or resistance zone.
         """
         # Get vectorized wick directions for all candles
-        wick_directions = get_wick_directions_vectorized(data)
+        wick_directions = get_wick_directions_vecd(data)
 
         # Rolling count of consecutive up wicks (value = 1) in last 3 candles
         up_count = (wick_directions == +1).astype(int).rolling(window=3).sum()
@@ -37,7 +35,7 @@ class MultiplePattern(BaseStrategy):
 
         # Get support/resistance zones (vectorized)
         sup_res_zones = (
-            self.sup_res_indicator.is_sup_res_zone_vectorized(data, symbol)
+            self.sup_res_indicator.is_sup_res_zone_vecd(data, symbol)
             .astype(float)
             .fillna(0.0)
         )
@@ -48,7 +46,7 @@ class MultiplePattern(BaseStrategy):
         ) * sup_res_zones
 
     def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
-        scores = self._get_score_for_candles_vectorized(data, symbol)
+        scores = self._get_score_for_candles_vecd(data, symbol)
         # Check for any occurrence of the pattern in last 6 candles
         scores = (
             scores.fillna(0)
@@ -62,7 +60,7 @@ class MultiplePattern(BaseStrategy):
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
-        scores = self._get_score_for_candles_vectorized(data, symbol)
+        scores = self._get_score_for_candles_vecd(data, symbol)
         # Check for any occurrence of the pattern in last 6 candles
         scores = (
             scores.fillna(0)
