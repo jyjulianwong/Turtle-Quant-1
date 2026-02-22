@@ -70,6 +70,7 @@ class SharedMemoryCache(BaseCache):
 
     def _read_dict(self) -> dict:
         """Deserialize dict from shared memory."""
+        assert self.shm.buf is not None
         raw = self.shm.buf.tobytes()
         try:
             return pickle.loads(raw.rstrip(b"\x00"))  # strip padding
@@ -84,6 +85,7 @@ class SharedMemoryCache(BaseCache):
                 f"Cache too large for shared memory ({len(blob)} > {self.size})"
             )
         # Write blob + pad remaining space
+        assert self.shm.buf is not None
         self.shm.buf[: len(blob)] = blob
         self.shm.buf[len(blob) :] = b"\x00" * (self.size - len(blob))
 

@@ -217,6 +217,8 @@ def is_holiday_date(date: datetime, symbol: str) -> bool:
             datetime(2024, 11, 29).date(),
             datetime(2024, 12, 24).date(),
             datetime(2025, 7, 3).date(),
+            datetime(2025, 11, 28).date(),
+            datetime(2025, 12, 24).date(),
         ]
 
     return date.date() in (holiday_dates + holiday_overrides)

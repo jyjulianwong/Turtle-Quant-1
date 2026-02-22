@@ -58,6 +58,9 @@ notebook = [
     "voila>=0.5.8",
 ]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.ruff]
 line-length = 88
 indent-width = 4
@@ -91,7 +94,7 @@ add-ignore = "D104,D418"
 
 [tool.pyrefly]
 # Set the directory Pyrefly will search for files to type check
-project-includes = ["turtle_quant_1/*"]
+project-includes = ["src/turtle_quant_1/*"]
 project-excludes = ["**/*venv/**/*"]
 
 # Manually set the `sys.platform` Pyrefly will assume when type checking

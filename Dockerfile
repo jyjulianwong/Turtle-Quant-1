@@ -1,4 +1,4 @@
-FROM python:3.12.9-slim
+FROM python:3.12.12-slim
 
 ENV PYTHONUNBUFFERED True
 ENV UV_NO_CACHE True
@@ -19,7 +19,7 @@ COPY uv.lock .
 RUN uv sync --frozen --no-default-groups
 
 # Copy only necessary files
-COPY turtle_quant_1/ $APP_ROOT/turtle_quant_1/
+COPY src/turtle_quant_1/ $APP_ROOT/src/turtle_quant_1/
 
 EXPOSE 8080
 CMD ["uv", "run", "uvicorn", "turtle_quant_1.server.main:app", "--host", "0.0.0.0", "--port", "8080"]

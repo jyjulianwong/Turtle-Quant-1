@@ -285,9 +285,7 @@ class StrategyEngine(BaseStrategyEngine):
         # Convert variance to agreement (lower variance = higher agreement)
         # Max possible variance for scores in [-1, 1] is 1.0 (when scores are -1 and +1)
         max_variance = 1.0
-        agreement = 1.0 - min(
-            score_variance / max_variance, 1.0
-        )  # pyrefly: ignore[no-matching-overload]
+        agreement = 1.0 - min(float(score_variance) / max_variance, 1.0)
 
         return agreement
 

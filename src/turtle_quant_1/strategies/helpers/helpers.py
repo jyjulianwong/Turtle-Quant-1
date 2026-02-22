@@ -54,8 +54,7 @@ def calc_atr_value(
 
     prev_close = close.shift(1)
 
-    tr = np.maximum.reduce(
-        # pyrefly: ignore
+    tr = np.maximum.reduce(  # pyrefly: ignore[no-matching-overload]
         [
             (high - low).abs().values,
             (high - prev_close).abs().values,
