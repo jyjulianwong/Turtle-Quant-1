@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.0 (2026-02-25)
+
+### Features
+
+- Optimised indicator calculations and unit conversion using caching
+  ([#3](https://github.com/jyjulianwong/Turtle-Quant-1/pull/3),
+  [`7366d2d`](https://github.com/jyjulianwong/Turtle-Quant-1/commit/7366d2d8ed6c7be7424bec36c985cb72f7367023))
+
+
 ## v1.1.1 (2025-08-16)
 
 ### Bug Fixes
