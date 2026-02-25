@@ -1,0 +1,81 @@
+"""Bollinger band strategy implementation."""
+
+import numpy as np
+import pandas as pd
+
+from turtle_quant_1.config import BACKTESTING_MAX_LOOKBACK_DAYS, CANDLE_UNIT
+from turtle_quant_1.strategies.base import BaseStrategy
+from turtle_quant_1.strategies.helpers.candle_units import convert_units
+
+
+class BollingerBand(BaseStrategy):
+    """A strategy that uses the Bollinger bands to generate buy and sell signals.
+
+    Leading / Lagging: Lagging in construction. Leading in interpretation.
+    Lag period (in candles): (`lookback_candles` - 1) / 2
+    Effect: Delay in recognizing that price has deviated far enough from equilibrium.
+    """
+
+    def __init__(self, lookback_candles: int = 180, n_std: int = 3):
+        """Initialize the Bollinger band strategy.
+
+        Args:
+            lookback_candles: The number of periods to use for the Bollinger bands.
+            n_std: The number of standard deviations to use for the Bollinger bands.
+        """
+        super().__init__()
+        self.lookback_candles = lookback_candles
+        self.n_std = n_std
+
+        if (
+            lookback_candles
+            > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "DAY", CANDLE_UNIT) * 0.5
+        ):
+            raise ValueError(
+                f"This strategy relies on too many lookback candles ({lookback_candles}) for meaningful evaluation to be done. "
+                f"Maximum lookback is {BACKTESTING_MAX_LOOKBACK_DAYS} days."
+            )
+
+    def generate_historical_scores(self, data: pd.DataFrame, symbol: str) -> pd.Series:
+        """Generate a historical score array for a symbol based on market data.
+
+        NOTE: Assume that the data is sorted by datetime.
+
+        Args:
+            data: The data to use for the strategy.
+            symbol: The symbol to use for the strategy.
+
+        Returns:
+            Score array with each value between -1.0 and +1.0, indexed by datetime
+        """
+        self.validate_data(data)
+
+        sma = data["Close"].rolling(self.lookback_candles).mean()
+        std = data["Close"].rolling(self.lookback_candles).std()
+
+        upper = sma + self.n_std * std
+        lower = sma - self.n_std * std
+
+        score = (data["Close"] - sma) / (upper - lower)
+        if np.isnan(score.iloc[-1]):
+            raise ValueError("Last score should not be NaN")
+
+        return pd.Series(
+            data=score.clip(-1, 1).fillna(0).values,
+            index=pd.to_datetime(data["datetime"]),
+        )
+
+    def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
+        """Generate a score for the strategy.
+
+        NOTE: Assume that the data is sorted by datetime.
+
+        Args:
+            data: The data to use for the strategy.
+            symbol: The symbol to use for the strategy.
+        """
+        # Score near +1 -> BUY
+        # Score near -1 -> SELL
+        return self.generate_historical_scores(
+            data.iloc[-(self.lookback_candles + 1) :], symbol
+        ).iloc[-1]

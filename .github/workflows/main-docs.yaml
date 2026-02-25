@@ -35,7 +35,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install uv
           uv sync --all-groups
-          uv run pdoc -o docs/ turtle_quant_1/
+          uv run pdoc -o docs/ src/turtle_quant_1/
         env:
           TURTLEQUANT1_ENV: ${{ vars.TURTLEQUANT1_ENV }}
           TURTLEQUANT1_GCLOUD_REGION: ${{ vars.TURTLEQUANT1_GCLOUD_REGION }}
