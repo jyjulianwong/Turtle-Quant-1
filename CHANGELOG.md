@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.1 (2026-02-25)
+
+### Bug Fixes
+
+- Fixed incorrect ordering of Dockerfile commands after `src/` folder migration
+  ([#4](https://github.com/jyjulianwong/Turtle-Quant-1/pull/4),
+  [`664e16a`](https://github.com/jyjulianwong/Turtle-Quant-1/commit/664e16aae920cf5363a1c3f6723a89a1dc823c8f))
+
+
 ## v1.2.0 (2026-02-25)
 
 ### Features
