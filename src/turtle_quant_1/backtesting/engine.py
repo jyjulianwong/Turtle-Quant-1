@@ -323,6 +323,9 @@ class BacktestingEngine:
         # Get current prices for all symbols at this timestamp
         curr_prices = {}
 
+        # Accumulate all signals (including HOLDs) for post-run inspection
+        signal_history_list: list[dict] = []
+
         for i, timestamp in enumerate(simulation_ticks):
             # Generate signals for each symbol
             for symbol in self.symbols:
@@ -357,6 +360,17 @@ class BacktestingEngine:
                 if transaction_executed:
                     total_transactions += 1
 
+                signal_history_list.append(
+                    {
+                        "datetime": timestamp,
+                        "symbol": symbol,
+                        "action": signal.action.value,
+                        "score": signal.score,
+                        "strategies": signal.strategies,
+                        "executed": transaction_executed,
+                    }
+                )
+
             # Record portfolio value for returns calculation (once per timestamp)
             if curr_prices:
                 # Check if any take profits or stop losses should be triggered upon every tick
@@ -390,6 +404,37 @@ class BacktestingEngine:
         # Create portfolio summary and results directly
         portfolio_summary = self.portfolio.get_summary(final_prices)
 
+        # Build per-symbol price history sliced to the simulation window
+        price_history: dict[str, pd.DataFrame] = {}
+        for symbol in self.symbols:
+            data = self.data_cache[symbol]
+            if not data.empty:
+                mask = (data["datetime"] >= simulation_start) & (
+                    data["datetime"] <= simulation_end
+                )
+                price_history[symbol] = data[mask].copy().reset_index(drop=True)
+
+        # Convert portfolio_returns list to a DataFrame
+        portfolio_value_history = pd.DataFrame(
+            self.portfolio_returns, columns=["datetime", "portfolio_value"]
+        )
+
+        # Convert signal list to a DataFrame
+        signal_history = (
+            pd.DataFrame(signal_history_list)
+            if signal_history_list
+            else pd.DataFrame(
+                columns=[
+                    "datetime",
+                    "symbol",
+                    "action",
+                    "score",
+                    "strategies",
+                    "executed",
+                ]
+            )
+        )
+
         results = TestCaseResults(
             initial_capital=self.initial_capital,
             final_portfolio_value=final_portfolio_value,
@@ -397,12 +442,15 @@ class BacktestingEngine:
             final_cash=self.portfolio.cash,
             total_return_dollars=total_return,
             total_return_percent=self.portfolio.get_return_percent(final_prices),
+            portfolio_value_history=portfolio_value_history,
             portfolio_summary=PortfolioSummary(**portfolio_summary),
+            price_history=price_history,
             total_signals=total_signals,
             total_transactions=total_transactions,
             total_simulation_ticks=len(simulation_ticks),
             symbols_traded=self.symbols,
             transaction_history=self.portfolio.get_transaction_history(),
+            signal_history=signal_history,
             simulation_start=simulation_start,
             simulation_end=simulation_end,
             metrics=self.get_metrics(benchmark="SPY"),  # TODO: Hard-coded.

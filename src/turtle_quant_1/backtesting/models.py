@@ -49,7 +49,20 @@ class TestCaseResults(BaseModel):
     final_cash: float
     total_return_dollars: float
     total_return_percent: float
+    portfolio_value_history: pd.DataFrame = Field(
+        ...,
+        description=("Portfolio value over time. Columns: datetime, portfolio_value."),
+    )
     portfolio_summary: PortfolioSummary
+
+    # Price data
+    price_history: Dict[str, pd.DataFrame] = Field(
+        ...,
+        description=(
+            "Per-symbol OHLCV DataFrame covering the simulation window. "
+            "Keyed by symbol."
+        ),
+    )
 
     # Transaction data
     total_signals: int
@@ -58,6 +71,13 @@ class TestCaseResults(BaseModel):
     symbols_traded: List[str]
     transaction_history: pd.DataFrame = Field(
         ..., description="DataFrame with transaction history"
+    )
+    signal_history: pd.DataFrame = Field(
+        ...,
+        description=(
+            "DataFrame with all signals generated during simulation, including HOLDs. "
+            "Columns: datetime, symbol, action, score, strategies, executed"
+        ),
     )
 
     # Time period
