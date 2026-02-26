@@ -27,8 +27,8 @@ class TestYFinanceDataFetcher:
     """Test cases for YFinanceDataFetcher."""
 
     @patch("turtle_quant_1.data_processing.adapters.yfinance_fetcher.yf.Ticker")
-    def test_fetch_hourly_ohlcv_success(self, mock_ticker_class, symbols, dates):
-        """Test successful hourly OHLCV data fetching."""
+    def test_fetch_5min_ohlcv_success(self, mock_ticker_class, symbols, dates):
+        """Test successful 5-minute OHLCV data fetching."""
         # Mock ticker instance and its history method
         mock_ticker = MagicMock()
         mock_ticker_class.return_value = mock_ticker
@@ -45,13 +45,13 @@ class TestYFinanceDataFetcher:
                 "Close": [151.0, 152.0],
                 "Volume": [1000000, 1100000],
             },
-            index=pd.date_range(dates["start"], periods=2, freq="h"),
+            index=pd.date_range(dates["start"], periods=2, freq="5min"),
         )
 
         mock_ticker.history.return_value = mock_data
 
         # Test
-        result = yfinance_fetcher.fetch_hourly_ohlcv(
+        result = yfinance_fetcher.fetch_5min_ohlcv(
             "AAPL",
             dates["start"],
             dates["end"],
@@ -68,7 +68,7 @@ class TestYFinanceDataFetcher:
         pd.testing.assert_frame_equal(result, expected_data)
 
     @patch("turtle_quant_1.data_processing.adapters.yfinance_fetcher.yf.Ticker")
-    def test_fetch_hourly_ohlcv_empty_data(self, mock_ticker_class, symbols, dates):
+    def test_fetch_5min_ohlcv_empty_data(self, mock_ticker_class, symbols, dates):
         """Test handling of empty data response."""
         # Mock ticker instance and its history method
         mock_ticker = MagicMock()
@@ -79,7 +79,7 @@ class TestYFinanceDataFetcher:
         yfinance_fetcher = YFinanceDataFetcher(symbols)
 
         # Test
-        result = yfinance_fetcher.fetch_hourly_ohlcv(
+        result = yfinance_fetcher.fetch_5min_ohlcv(
             "AAPL",
             dates["start"],
             dates["end"],
@@ -93,8 +93,8 @@ class TestAlphaVantageDataFetcher:
     """Test cases for AlphaVantageDataFetcher."""
 
     @patch("turtle_quant_1.data_processing.adapters.alpha_vantage_fetcher.TimeSeries")
-    def test_fetch_hourly_ohlcv_success(self, mock_timeseries_class, symbols, dates):
-        """Test successful hourly OHLCV data fetching."""
+    def test_fetch_5min_ohlcv_success(self, mock_timeseries_class, symbols, dates):
+        """Test successful 5-minute OHLCV data fetching."""
         # Mock TimeSeries instance
         mock_ts = MagicMock()
         mock_timeseries_class.return_value = mock_ts
@@ -111,18 +111,18 @@ class TestAlphaVantageDataFetcher:
                 "4. close": [151.0, 152.0],
                 "5. volume": [1000000, 1100000],
             },
-            index=pd.date_range(dates["start"], periods=2, freq="h"),
+            index=pd.date_range(dates["start"], periods=2, freq="5min"),
         )
 
         mock_metadata = {
             "Meta Data": {
-                "Information": "Intraday (60min) open, high, low, close prices and volume"
+                "Information": "Intraday (5min) open, high, low, close prices and volume"
             }
         }
         mock_ts.get_intraday.return_value = (mock_data, mock_metadata)
 
         # Test
-        result = alpha_vantage_fetcher.fetch_hourly_ohlcv(
+        result = alpha_vantage_fetcher.fetch_5min_ohlcv(
             "AAPL",
             dates["start"],
             dates["end"],
@@ -137,7 +137,7 @@ class TestAlphaVantageDataFetcher:
         )
 
     @patch("turtle_quant_1.data_processing.adapters.alpha_vantage_fetcher.TimeSeries")
-    def test_fetch_hourly_ohlcv_api_error(self, mock_timeseries_class, symbols, dates):
+    def test_fetch_5min_ohlcv_api_error(self, mock_timeseries_class, symbols, dates):
         """Test handling of API error response."""
         # Mock TimeSeries instance to raise an exception
         mock_ts = MagicMock()
@@ -149,7 +149,7 @@ class TestAlphaVantageDataFetcher:
 
         # Test and assert
         with pytest.raises(Exception):
-            alpha_vantage_fetcher.fetch_hourly_ohlcv(
+            alpha_vantage_fetcher.fetch_5min_ohlcv(
                 "AAPL",
                 dates["start"],
                 dates["end"],

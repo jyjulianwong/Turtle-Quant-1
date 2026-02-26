@@ -85,8 +85,13 @@ class BacktestingEngine:
 
             # This reduces duplicated calculations across all DataUnitConverter instances,
             # because data conversion is a static utility method.
-            DataUnitConverter.preload_global_instance_cache(symbol, data, "daily")
-            DataUnitConverter.preload_global_instance_cache(symbol, data, "weekly")
+            DataUnitConverter.preload_global_instance_cache(symbol, data, "15M")
+            DataUnitConverter.preload_global_instance_cache(symbol, data, "30M")
+            DataUnitConverter.preload_global_instance_cache(symbol, data, "1H")
+            DataUnitConverter.preload_global_instance_cache(symbol, data, "2H")
+            DataUnitConverter.preload_global_instance_cache(symbol, data, "4H")
+            DataUnitConverter.preload_global_instance_cache(symbol, data, "1D")
+            DataUnitConverter.preload_global_instance_cache(symbol, data, "1W")
 
             # This reduces duplicated calculations across all SupResIndicator instances,
             # because the cache is a global singleton.

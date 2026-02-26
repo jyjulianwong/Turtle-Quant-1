@@ -22,13 +22,13 @@ class AlphaVantageDataFetcher(BaseDataFetcher):
         super().__init__(symbols)
         self.client = TimeSeries(key=ALPHA_VANTAGE_API_KEY, output_format="pandas")
 
-    def fetch_hourly_ohlcv(
+    def fetch_5min_ohlcv(
         self,
         symbol: str,
         start_date: datetime,
         end_date: datetime,
     ) -> pd.DataFrame:
-        """Fetch hourly OHLCV data from Alpha Vantage.
+        """Fetch 5-minute OHLCV data from Alpha Vantage.
 
         Args:
             symbol: The symbol to fetch data for.
@@ -38,9 +38,9 @@ class AlphaVantageDataFetcher(BaseDataFetcher):
         Returns:
             DataFrame with columns: datetime, open, high, low, close, volume.
         """
-        # Get hourly data (returns tuple of (data, metadata))
+        # Get 5-minute data (returns tuple of (data, metadata))
         df, _ = self.client.get_intraday(  # pyrefly: ignore
-            symbol=symbol, interval="60min", outputsize="full"
+            symbol=symbol, interval="5min", outputsize="full"
         )
 
         # Return empty DataFrame if no data

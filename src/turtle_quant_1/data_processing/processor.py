@@ -106,7 +106,7 @@ class DataProcessor(BaseDataProcessor):
                 f"No data found for {symbol}. Fetching from {self.fetcher}..."
             )
             # TODO: Respect CANDLE_UNIT.
-            df = self.fetcher.fetch_hourly_ohlcv(
+            df = self.fetcher.fetch_5min_ohlcv(
                 symbol=symbol,
                 start_date=_start_date,
                 end_date=_end_date,

@@ -29,7 +29,7 @@ class BollingerBand(BaseStrategy):
 
         if (
             lookback_candles
-            > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "DAY", CANDLE_UNIT) * 0.5
+            > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "1D", CANDLE_UNIT) * 0.5
         ):
             raise ValueError(
                 f"This strategy relies on too many lookback candles ({lookback_candles}) for meaningful evaluation to be done. "

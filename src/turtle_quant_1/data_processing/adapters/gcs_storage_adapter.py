@@ -41,10 +41,14 @@ class GCSDataStorageAdapter(BaseDataStorageAdapter):
             The blob name in the format: ohlcv/{symbol}/hourly.parquet
         """
         unit_file_name_dict = {
-            "HOUR": "hourly.parquet",
-            "DAY": "daily.parquet",
-            "WEEK": "weekly.parquet",
-            "MONTH": "monthly.parquet",
+            "5M": "5min.parquet",
+            "15M": "15min.parquet",
+            "30M": "30min.parquet",
+            "1H": "1h.parquet",
+            "2H": "2h.parquet",
+            "4H": "4h.parquet",
+            "1D": "1d.parquet",
+            "1W": "1w.parquet",
         }
 
         return f"ohlcv/{symbol}/{unit_file_name_dict[CANDLE_UNIT]}"

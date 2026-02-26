@@ -212,7 +212,7 @@ class DataMaintainer(BaseDataMaintainer):
         existing_data = data.copy()
 
         # Fetch data
-        fetched_data = self.fetcher.fetch_hourly_ohlcv(
+        fetched_data = self.fetcher.fetch_5min_ohlcv(
             symbol=symbol,
             start_date=start_date,
             end_date=end_date,

@@ -372,7 +372,7 @@ class StrategyEngine(BaseStrategyEngine):
         k = 3  # Multiplier
         atr = calc_atr_value(
             data=data,
-            lookback=convert_units(3, "MONTH", CANDLE_UNIT),
+            lookback=convert_units(4, "1W", CANDLE_UNIT),
             return_log_space=False,
         )
         return curr_price - k * atr

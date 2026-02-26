@@ -24,13 +24,13 @@ class YFinanceDataFetcher(BaseDataFetcher):
         super().__init__(symbols)
         self.tickers = {symbol: yf.Ticker(symbol) for symbol in symbols}
 
-    def fetch_hourly_ohlcv(
+    def fetch_5min_ohlcv(
         self,
         symbol: str,
         start_date: datetime,
         end_date: datetime,
     ) -> pd.DataFrame:
-        """Fetch hourly OHLCV data from YFinance.
+        """Fetch 5-minute OHLCV data from YFinance.
 
         Args:
             symbol: The symbol to fetch data for.
@@ -50,7 +50,7 @@ class YFinanceDataFetcher(BaseDataFetcher):
             df = self.tickers[symbol].history(
                 start=start_date,
                 end=end_date,
-                interval="1h",
+                interval="5m",
             )
 
             # Return empty DataFrame if no data

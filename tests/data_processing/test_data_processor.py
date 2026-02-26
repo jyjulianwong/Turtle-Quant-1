@@ -45,7 +45,7 @@ def sample_ohlcv_data(dates):
             "Close": [151.0, 152.0],
             "Volume": [1000000, 1050000],
         },
-        index=pd.date_range(dates["start"], periods=2, freq="h"),
+        index=pd.date_range(dates["start"], periods=2, freq="5min"),
     )
 
 
@@ -105,7 +105,7 @@ class TestDataProcessor:
         # Setup
         symbol = "AAPL"
         mock_storage_adapter.load_ohlcv_data.return_value = pd.DataFrame()
-        mock_fetcher.fetch_hourly_ohlcv.return_value = sample_ohlcv_data
+        mock_fetcher.fetch_5min_ohlcv.return_value = sample_ohlcv_data
 
         # Test
         result = data_processor.load_data(
@@ -122,7 +122,7 @@ class TestDataProcessor:
             start_date=None,  # TODO: Work out why.
             end_date=None,  # TODO: Work out why.
         )
-        mock_fetcher.fetch_hourly_ohlcv.assert_called_once_with(
+        mock_fetcher.fetch_5min_ohlcv.assert_called_once_with(
             symbol=symbol,
             start_date=dates["start"],
             end_date=dates["end"],
@@ -157,7 +157,7 @@ class TestDataProcessor:
         # Assertions
         pd.testing.assert_frame_equal(result, sample_ohlcv_data)
         assert not mock_storage_adapter.load_ohlcv_data.called
-        assert not mock_fetcher.fetch_hourly_ohlcv.called
+        assert not mock_fetcher.fetch_5min_ohlcv.called
         assert not mock_storage_adapter.save_ohlcv_data.called
 
     def test_load_data_with_imputation(

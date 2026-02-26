@@ -65,13 +65,13 @@ class BaseDataFetcher(ABC):
         self.symbols = symbols
 
     @abstractmethod
-    def fetch_hourly_ohlcv(
+    def fetch_5min_ohlcv(
         self,
         symbol: str,
         start_date: datetime,
         end_date: datetime,
     ) -> pd.DataFrame:
-        """Fetch hourly OHLCV data for a symbol.
+        """Fetch 5-minute OHLCV data for a symbol.
 
         Args:
             symbol: Symbol to fetch data for.

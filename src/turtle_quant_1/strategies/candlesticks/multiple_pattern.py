@@ -50,7 +50,7 @@ class MultiplePattern(BaseStrategy):
         # Check for any occurrence of the pattern in last 6 candles
         scores = (
             scores.fillna(0)
-            .rolling(window=convert_units(2, "DAY", CANDLE_UNIT))
+            .rolling(window=convert_units(2, "1D", CANDLE_UNIT))
             .sum()
             .clip(-1, 1)
         )
@@ -64,7 +64,7 @@ class MultiplePattern(BaseStrategy):
         # Check for any occurrence of the pattern in last 6 candles
         scores = (
             scores.fillna(0)
-            .rolling(window=convert_units(2, "DAY", CANDLE_UNIT))
+            .rolling(window=convert_units(2, "1D", CANDLE_UNIT))
             .sum()
             .clip(-1, 1)
         )

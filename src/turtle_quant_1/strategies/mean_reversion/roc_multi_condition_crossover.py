@@ -31,7 +31,7 @@ class RocMultiConditionCrossover(BaseStrategy):
         self,
         roc_period: int = 14,
         signal_period: int = 9,
-        trend_period: int = 200,
+        trend_period: int = 90,  # This is a magic number.
         min_threshold: float = 1.0,
         use_zero_filter: bool = True,
         use_trend_filter: bool = True,
@@ -57,13 +57,14 @@ class RocMultiConditionCrossover(BaseStrategy):
 
         # This depends on the resampling of the data
         if (
-            roc_period > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "DAY", "DAY")
-            or signal_period
-            > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "DAY", "DAY")
-            or trend_period > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "DAY", "DAY")
+            roc_period > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "1D", "1H")
+            or (
+                signal_period > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "1D", "1H")
+            )
+            or trend_period > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "1D", "1H")
         ):
             raise ValueError(
-                f"This strategy relies on too many lookback candles ({roc_period}) "
+                f"This strategy relies on too many lookback candles ({max(roc_period, signal_period, trend_period)}) "
                 f"for meaningful evaluation. Maximum lookback is {BACKTESTING_MAX_LOOKBACK_DAYS} days."
             )
 
@@ -81,7 +82,8 @@ class RocMultiConditionCrossover(BaseStrategy):
         """
         self.validate_data(data)
 
-        data_resampled = DataUnitConverter.convert_to_daily_data(symbol, data)
+        # TODO: This is a magic number.
+        data_resampled = DataUnitConverter.convert_to_1h_data(symbol, data)
 
         # === Step 1: Compute RoC and smoothed signal line ===
         roc = (
@@ -142,7 +144,7 @@ class RocMultiConditionCrossover(BaseStrategy):
             # TODO: Using * 2.0 here to give buffer zone for any miscalculations.
             # This depends on the resampling of the data
             data.iloc[
-                -(round(convert_units(n_candles_required, "DAY", CANDLE_UNIT) * 2.0)) :
+                -(round(convert_units(n_candles_required, "1H", CANDLE_UNIT) * 2.0)) :
             ],
             symbol,
         ).iloc[-1]
