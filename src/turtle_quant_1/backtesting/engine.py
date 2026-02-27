@@ -8,6 +8,7 @@ import pandas as pd
 import pytz
 import quantstats as qs
 from pandas.tseries.offsets import BDay
+from tqdm import tqdm
 
 from turtle_quant_1.backtesting.models import PortfolioSummary, TestCaseResults
 from turtle_quant_1.backtesting.portfolio import Portfolio
@@ -15,11 +16,13 @@ from turtle_quant_1.config import (
     BACKTESTING_MAX_LOOKBACK_DAYS,
     BACKTESTING_MAX_LOOKFORWARD_DAYS,
     BACKTESTING_SYMBOLS,
+    CANDLE_UNIT,
     HOST_TIMEZONE,
     MAX_HISTORY_DAYS,
 )
 from turtle_quant_1.data_processing.processor import DataProcessor
 from turtle_quant_1.strategies.base import BaseStrategyEngine, Signal, SignalAction
+from turtle_quant_1.strategies.helpers.candle_units import convert_units
 from turtle_quant_1.strategies.helpers.data_units import DataUnitConverter
 from turtle_quant_1.strategies.helpers.multiprocessing import FileCache
 from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
@@ -165,9 +168,8 @@ class BacktestingEngine:
             )
 
         # Calculate lookback period in data points
-        # For hourly data, we want roughly lookback_months * 30 * 24 hours
-        lookback_hours = self.max_lookback_days * 24
-        start_index = max(0, current_index - lookback_hours)
+        lookback_units = convert_units(self.max_lookback_days, "1D", CANDLE_UNIT)
+        start_index = max(0, current_index - lookback_units)
 
         return data.iloc[start_index : current_index + 1]
 
@@ -223,7 +225,7 @@ class BacktestingEngine:
 
         while curr_tick <= tick_end:
             # TODO: Respect CANDLE_UNIT.
-            # NOTE: Simulate the schedule of the production host environment.
+            # NOTE: Simulate the trigger schedule of the production environment.
             ticks.append(curr_tick.replace(hour=9, minute=0, second=0))
             ticks.append(curr_tick.replace(hour=12, minute=0, second=0))
             ticks.append(curr_tick.replace(hour=15, minute=0, second=0))
@@ -330,11 +332,15 @@ class BacktestingEngine:
         # Accumulate all signals (including HOLDs) for post-run inspection
         signal_history_list: list[dict] = []
 
-        for i, timestamp in enumerate(simulation_ticks):
+        for i, timestamp in enumerate(
+            tqdm(simulation_ticks, desc="Backtesting", unit="tick")
+        ):
             # Generate signals for each symbol
             for symbol in self.symbols:
                 # Get full historical data up to this point for strategy analysis
                 full_data = self.data_cache[symbol]
+                # Filter data to only include data up to the current timestamp to prevent data leakage
+                # i.e. This caps the newest timestamp.
                 curr_data_mask = full_data["datetime"] <= timestamp
                 curr_data = full_data[curr_data_mask]
 
@@ -342,6 +348,7 @@ class BacktestingEngine:
                     continue  # Not enough data for strategy
 
                 # Get lookback data for strategy
+                # i.e. This caps the oldest timestamp.
                 curr_index = len(curr_data) - 1
                 lookback_data = self._get_lookback_data(symbol, curr_index, curr_data)
 
@@ -349,7 +356,7 @@ class BacktestingEngine:
                     continue  # Not enough lookback data
 
                 # Get current price (use the closest available price)
-                curr_row = curr_data.iloc[-1]
+                curr_row = lookback_data.iloc[-1]
                 curr_price = curr_row["Close"]
                 curr_prices[symbol] = curr_price
 
@@ -384,13 +391,6 @@ class BacktestingEngine:
                 # Record latest portfolio value
                 portfolio_value = self.portfolio.get_portfolio_value(curr_prices)
                 self.portfolio_returns.append((timestamp, portfolio_value))
-
-            # Log progress periodically
-            if i % 100 == 0:  # Every 100 simulation ticks
-                logger.info(
-                    f"Progress: {i}/{len(simulation_ticks)} ({100 * i / len(simulation_ticks):.1f}%) | "
-                    f"Portfolio Value: ${portfolio_value:.2f}"
-                )
 
         # Calculate final results
         final_prices = {}
