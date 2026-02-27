@@ -7,6 +7,7 @@ from typing import Dict, List, Tuple
 import pandas as pd
 import pytz
 import quantstats as qs
+from pandas.tseries.offsets import BDay
 
 from turtle_quant_1.backtesting.models import PortfolioSummary, TestCaseResults
 from turtle_quant_1.backtesting.portfolio import Portfolio
@@ -119,7 +120,8 @@ class BacktestingEngine:
 
         # Calculate date ranges
         end_date = datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
-        start_date = end_date - timedelta(days=self.max_history_days)
+        # Exclude weekends (but not holidays) when calculating the difference
+        start_date = end_date - BDay(self.max_history_days)
 
         try:
             # Load the data using DataProcessor
@@ -314,7 +316,9 @@ class BacktestingEngine:
         )
 
         if len(simulation_ticks) < 2:
-            raise ValueError("Not enough simulation ticks for meaningful backtesting")
+            raise ValueError(
+                f"Not enough simulation ticks for meaningful backtesting: {len(simulation_ticks)}"
+            )
 
         # Run the simulation using simulation ticks
         total_signals = 0

@@ -281,15 +281,15 @@ class DataMaintainer(BaseDataMaintainer):
 
         # Find gaps in the data
         gaps = self._get_data_gaps(symbol, data, start_date, end_date)
+        logger.info(f"Found {len(gaps)} gaps in total in data for {symbol}")
+        # Filter any gaps that are less than 1 hour to avoid too many API calls
+        gaps = [gap for gap in gaps if gap[1] - gap[0] >= timedelta(hours=1)]
+        logger.info(f"Found {len(gaps)} significant gaps in data for {symbol}")
 
         # Fill any gaps found
-        if gaps:
-            logger.info(f"Found {len(gaps)} gaps in data for {symbol}")
-            for i, gap in enumerate(gaps):
-                logger.info(f"    - Gap {i}: {gap[0]} to {gap[1]}")
-            data = self._fill_data_gaps(symbol, data, gaps)
-        else:
-            logger.info(f"No gaps found in data for {symbol}")
+        for i, gap in enumerate(gaps):
+            logger.info(f"    - Gap {i}: {gap[0]} to {gap[1]}")
+        data = self._fill_data_gaps(symbol, data, gaps)
 
         # Delete outdated data as a "cron job"
         if datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE)).day == 28:

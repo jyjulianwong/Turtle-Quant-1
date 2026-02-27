@@ -112,7 +112,8 @@ def get_expected_market_hours_index(
             while curr_hour <= market_c_datetime:
                 if start_date <= curr_hour <= end_date:
                     expected_datetimes.append(curr_hour)
-                curr_hour += timedelta(hours=1)
+                # NOTE: Based on assumption that 5 minutes is the smallest unit of time for the data.
+                curr_hour += timedelta(minutes=5)
 
         # Move to next day (DST-aware)
         if curr_datetime.tzinfo is not None:
@@ -219,6 +220,7 @@ def is_holiday_date(date: datetime, symbol: str) -> bool:
             datetime(2025, 7, 3).date(),
             datetime(2025, 11, 28).date(),
             datetime(2025, 12, 24).date(),
+            # NOTE: This needs to be regularly updated by the maintainer.
         ]
 
     return date.date() in (holiday_dates + holiday_overrides)
