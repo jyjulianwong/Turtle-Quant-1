@@ -6,7 +6,7 @@ _SUPPORTED_CANDLE_UNITS = ["5M", "15M", "30M", "1H", "2H", "4H", "1D", "1W"]
 assert CANDLE_UNIT in _SUPPORTED_CANDLE_UNITS
 
 # Conversion factors relative to 5M (the atomic unit).
-# Assumptions: 6 working hours per day, 5 working days per week.
+# NOTE: Based on assumption(s): 6 working hours per day, 5 working days per week.
 _UNIT_TO_5M = {
     "5M": 1,
     "15M": 3,
@@ -14,8 +14,8 @@ _UNIT_TO_5M = {
     "1H": 12,
     "2H": 24,
     "4H": 48,
-    "1D": 72,  # 6h × 12
-    "1W": 360,  # 72 × 5
+    "1D": 72,  # 6-hour day *12
+    "1W": 360,  # 5-day week * 12
 }
 
 
