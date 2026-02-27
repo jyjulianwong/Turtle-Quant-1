@@ -16,16 +16,15 @@ from turtle_quant_1.config import (
     BACKTESTING_MAX_LOOKBACK_DAYS,
     BACKTESTING_MAX_LOOKFORWARD_DAYS,
     BACKTESTING_SYMBOLS,
-    CANDLE_UNIT,
     HOST_TIMEZONE,
     MAX_HISTORY_DAYS,
 )
 from turtle_quant_1.data_processing.processor import DataProcessor
-from turtle_quant_1.strategies.base import BaseStrategyEngine, Signal, SignalAction
-from turtle_quant_1.strategies.helpers.candle_units import convert_units
+from turtle_quant_1.strategies.base import BaseStrategyEngine
 from turtle_quant_1.strategies.helpers.data_units import DataUnitConverter
 from turtle_quant_1.strategies.helpers.multiprocessing import FileCache
 from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
+from turtle_quant_1.trading.engine import TradingEngine
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -70,7 +69,13 @@ class BacktestingEngine:
         self.max_lookback_days = max_lookback_days
         self.max_lookforward_days = max_lookforward_days
 
-        self.portfolio = Portfolio(initial_capital)
+        self.trading_engine = TradingEngine(
+            strategy_engine=strategy_engine,
+            portfolio=Portfolio(initial_capital),
+            max_lookback_days=max_lookback_days,
+        )
+        # Convenience shorthand so the rest of this class can use self.portfolio directly.
+        self.portfolio = self.trading_engine.portfolio
 
         # Initialize data management components
         self.data_processor = DataProcessor(symbols=self.symbols)
@@ -149,30 +154,6 @@ class BacktestingEngine:
                 columns=["datetime", "Open", "High", "Low", "Close", "Volume"]
             )
 
-    def _get_lookback_data(
-        self, symbol: str, current_index: int, data: pd.DataFrame
-    ) -> pd.DataFrame:
-        """Get lookback data for strategy analysis.
-
-        Args:
-            symbol: Symbol to get data for.
-            current_index: Current index in the data.
-            data: Full data DataFrame.
-
-        Returns:
-            DataFrame with lookback data for strategy analysis.
-        """
-        if current_index < 1:
-            return pd.DataFrame(
-                columns=["datetime", "Open", "High", "Low", "Close", "Volume"]
-            )
-
-        # Calculate lookback period in data points
-        lookback_units = convert_units(self.max_lookback_days, "1D", CANDLE_UNIT)
-        start_index = max(0, current_index - lookback_units)
-
-        return data.iloc[start_index : current_index + 1]
-
     def _get_simulation_time_range(
         self, symbols: List[str]
     ) -> Tuple[datetime, datetime]:
@@ -234,59 +215,6 @@ class BacktestingEngine:
 
         return ticks
 
-    def _execute_signal(
-        self,
-        symbol: str,
-        signal: Signal,
-        price: float,
-        timestamp: datetime,
-    ) -> bool:
-        """Execute a trading signal.
-
-        Args:
-            symbol: Symbol to trade.
-            signal: The signal to execute.
-            price: Current price.
-            timestamp: Current timestamp. Timezone-aware.
-
-        Returns:
-            True if a transaction was executed, False otherwise.
-        """
-        if signal.action == SignalAction.BUY:
-            # Buy 100 dollars worth of the symbol if we have enough cash
-            units = 100.0 / price
-            success = self.portfolio.buy(
-                symbol=symbol,
-                quantity=units,
-                take_profit_value=signal.take_profit_value
-                if signal.take_profit_value is not None
-                else float("inf"),
-                stop_loss_value=signal.stop_loss_value
-                if signal.stop_loss_value is not None
-                else 0.0,
-                price=price,
-                timestamp=timestamp,
-            )
-            if success:
-                logger.debug(f"BUY: {symbol} at ${price:.2f} on {timestamp}")
-            else:
-                logger.debug(
-                    f"BUY FAILED: Insufficient funds for {symbol} at ${price:.2f}"
-                )
-            return success
-
-        elif signal.action == SignalAction.SELL:
-            # Sell all holdings of this symbol
-            success = self.portfolio.sell_holdings(symbol, price, timestamp)
-            if success:
-                logger.debug(f"SELL ALL: {symbol} at ${price:.2f} on {timestamp}")
-            else:
-                logger.debug(f"SELL FAILED: No holdings for {symbol}")
-            return success
-
-        # HOLD - No action
-        return False
-
     def run_backtest(self) -> TestCaseResults:
         """Run the backtesting simulation.
 
@@ -322,19 +250,10 @@ class BacktestingEngine:
                 f"Not enough simulation ticks for meaningful backtesting: {len(simulation_ticks)}"
             )
 
-        # Run the simulation using simulation ticks
-        total_signals = 0
-        total_transactions = 0
-
         # Get current prices for all symbols at this timestamp
         curr_prices = {}
 
-        # Accumulate all signals (including HOLDs) for post-run inspection
-        signal_history_list: list[dict] = []
-
-        for i, timestamp in enumerate(
-            tqdm(simulation_ticks, desc="Backtesting", unit="tick")
-        ):
+        for timestamp in tqdm(simulation_ticks, desc="Backtesting", unit="tick"):
             # Generate signals for each symbol
             for symbol in self.symbols:
                 # Get full historical data up to this point for strategy analysis
@@ -344,51 +263,12 @@ class BacktestingEngine:
                 curr_data_mask = full_data["datetime"] <= timestamp
                 curr_data = full_data[curr_data_mask]
 
-                if len(curr_data) < 2:
-                    continue  # Not enough data for strategy
+                self.trading_engine.handle_tick(symbol, curr_data, timestamp)
 
-                # Get lookback data for strategy
-                # i.e. This caps the oldest timestamp.
-                curr_index = len(curr_data) - 1
-                lookback_data = self._get_lookback_data(symbol, curr_index, curr_data)
-
-                if len(lookback_data) < 2:
-                    continue  # Not enough lookback data
-
-                # Get current price (use the closest available price)
-                curr_row = lookback_data.iloc[-1]
-                curr_price = curr_row["Close"]
-                curr_prices[symbol] = curr_price
-
-                # Generate signal
-                signal = self.strategy_engine.generate_signal(lookback_data, symbol)
-                total_signals += 1
-
-                # Execute signal
-                transaction_executed = self._execute_signal(
-                    symbol, signal, curr_price, timestamp
-                )
-                if transaction_executed:
-                    total_transactions += 1
-
-                signal_history_list.append(
-                    {
-                        "datetime": timestamp,
-                        "symbol": symbol,
-                        "action": signal.action.value,
-                        "score": signal.score,
-                        "strategies": signal.strategies,
-                        "executed": transaction_executed,
-                    }
-                )
+                curr_prices[symbol] = curr_data.iloc[-1]["Close"]
 
             # Record portfolio value for returns calculation (once per timestamp)
             if curr_prices:
-                # Check if any take profits or stop losses should be triggered upon every tick
-                self.portfolio.check_take_profit_triggers(curr_prices)
-                self.portfolio.check_stop_loss_triggers(curr_prices)
-
-                # Record latest portfolio value
                 portfolio_value = self.portfolio.get_portfolio_value(curr_prices)
                 self.portfolio_returns.append((timestamp, portfolio_value))
 
@@ -424,6 +304,7 @@ class BacktestingEngine:
         )
 
         # Convert signal list to a DataFrame
+        signal_history_list = self.trading_engine.signal_history_list
         signal_history = (
             pd.DataFrame(signal_history_list)
             if signal_history_list
@@ -449,8 +330,8 @@ class BacktestingEngine:
             portfolio_value_history=portfolio_value_history,
             portfolio_summary=PortfolioSummary(**portfolio_summary),
             price_history=price_history,
-            total_signals=total_signals,
-            total_transactions=total_transactions,
+            total_signals=self.trading_engine.total_signals,
+            total_transactions=self.trading_engine.total_transactions,
             total_simulation_ticks=len(simulation_ticks),
             symbols_traded=self.symbols,
             transaction_history=self.portfolio.get_transaction_history(),
@@ -463,7 +344,8 @@ class BacktestingEngine:
         logger.info(
             f"Backtesting complete. Total return: ${total_return:.2f} "
             f"({self.portfolio.get_return_percent(final_prices):.2f}%) | "
-            f"Signals generated: {total_signals} | Transactions: {total_transactions}"
+            f"Signals generated: {self.trading_engine.total_signals} | "
+            f"Transactions: {self.trading_engine.total_transactions}"
         )
 
         return results
