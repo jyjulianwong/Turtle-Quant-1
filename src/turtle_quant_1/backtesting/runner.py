@@ -1,7 +1,7 @@
 """Test runner for backtesting engine."""
 
-import logging
 import time
+import traceback
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -13,10 +13,10 @@ from turtle_quant_1.config import (
     BACKTESTING_SYMBOLS,
     MAX_HISTORY_DAYS,
 )
+from turtle_quant_1.logging import get_logger
 from turtle_quant_1.strategies.engine import StrategyEngine
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -244,7 +244,10 @@ class BacktestingTestRunner:
                     if "start_time" in locals()
                     else None
                 )
-                logger.error(f"Test case '{test_case.name}' failed: {e}")
+                logger.error(
+                    f"Test case '{test_case.name}' failed: {e}\n"
+                    + traceback.format_exc()
+                )
 
                 test_result = TestCaseResponse.from_failure(
                     test_case_name=test_case.name,

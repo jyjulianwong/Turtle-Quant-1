@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 import pytz
 
+# NOTE: We cannot import get_logger here to avoid importing environment configuration before test configuration.
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

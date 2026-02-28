@@ -1,6 +1,5 @@
 """Backtesting engine for strategy evaluation."""
 
-import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 
@@ -20,6 +19,7 @@ from turtle_quant_1.config import (
     MAX_HISTORY_DAYS,
 )
 from turtle_quant_1.data_processing.processor import DataProcessor
+from turtle_quant_1.logging import get_logger
 from turtle_quant_1.strategies.base import BaseStrategyEngine
 from turtle_quant_1.strategies.helpers.candle_units import CandleUnit
 from turtle_quant_1.strategies.helpers.data_units import DataUnitConverter
@@ -27,9 +27,7 @@ from turtle_quant_1.strategies.helpers.multiprocessing import FileCache
 from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
 from turtle_quant_1.trading.engine import TradingEngine
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Global data cache instance for backtesting

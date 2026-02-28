@@ -1,6 +1,5 @@
 """Data processor for orchestrating data fetching and storage."""
 
-import logging
 from datetime import datetime
 from typing import List, Optional
 
@@ -19,9 +18,9 @@ from turtle_quant_1.data_processing.base import (
 )
 from turtle_quant_1.data_processing.datetimes import get_expected_market_hours_bounds
 from turtle_quant_1.data_processing.maintainer import DataMaintainer
+from turtle_quant_1.logging import get_logger
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # !!!: Dangerous setting. Deletes and resets all data from cache.
 DANGER_CLEAR_CACHE = False

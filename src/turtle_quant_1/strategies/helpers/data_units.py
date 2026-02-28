@@ -1,13 +1,11 @@
-import logging
-
 import pandas as pd
 from pandas.core.groupby import DataFrameGroupBy
 
+from turtle_quant_1.logging import get_logger
 from turtle_quant_1.strategies.helpers.candle_units import CandleUnit
 from turtle_quant_1.strategies.helpers.multiprocessing import FileCache
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger(__name__)
 
 # Global cache instance
 _global_cache = FileCache()

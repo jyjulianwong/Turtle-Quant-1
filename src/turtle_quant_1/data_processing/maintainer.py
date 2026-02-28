@@ -1,6 +1,5 @@
 """Data maintainer for ensuring continuous historical data availability."""
 
-import logging
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
 
@@ -23,10 +22,9 @@ from turtle_quant_1.data_processing.datetimes import (
     get_expected_market_hours_index,
     get_symbol_timezone,
 )
+from turtle_quant_1.logging import get_logger
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DataMaintainer(BaseDataMaintainer):

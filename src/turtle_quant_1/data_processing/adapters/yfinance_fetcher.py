@@ -1,6 +1,5 @@
 """YFinance data fetcher implementation."""
 
-import logging
 from datetime import datetime
 from typing import List
 
@@ -8,8 +7,9 @@ import pandas as pd
 import yfinance as yf
 
 from turtle_quant_1.data_processing.base import BaseDataFetcher
+from turtle_quant_1.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class YFinanceDataFetcher(BaseDataFetcher):

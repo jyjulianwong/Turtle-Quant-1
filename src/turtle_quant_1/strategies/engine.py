@@ -3,7 +3,6 @@
 import atexit
 import importlib
 import inspect
-import logging
 import pkgutil
 import signal
 import threading
@@ -15,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from turtle_quant_1.config import CANDLE_UNIT, MAX_WORKERS
+from turtle_quant_1.logging import get_logger
 from turtle_quant_1.strategies import candlesticks, mean_reversion, momentum
 from turtle_quant_1.strategies.base import (
     BaseStrategy,
@@ -25,8 +25,7 @@ from turtle_quant_1.strategies.base import (
 from turtle_quant_1.strategies.helpers.candle_units import convert_units
 from turtle_quant_1.strategies.helpers.helpers import calc_atr_value
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger(__name__)
 
 
 def _run_strategy_process(

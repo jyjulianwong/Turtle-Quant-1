@@ -1,17 +1,16 @@
 """Hyperparameter tuning script for trading strategies using Optuna."""
 
-import logging
 from typing import Any, Dict
 
 import optuna
 
 from turtle_quant_1.backtesting.engine import BacktestingEngine
 from turtle_quant_1.backtesting.models import TestCaseResults
+from turtle_quant_1.logging import get_logger
 from turtle_quant_1.strategies.base import BaseStrategy
 from turtle_quant_1.strategies.engine import StrategyEngine
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def get_config(trial: optuna.Trial) -> Dict[str, Any]:

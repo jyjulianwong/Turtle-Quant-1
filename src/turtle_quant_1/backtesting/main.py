@@ -4,18 +4,17 @@ This script contains custom backtesting test cases to verify the backtesting eng
 For implementation details, see runner.py.
 """
 
-import logging
 from typing import List
 
 from turtle_quant_1.backtesting.runner import (
     BacktestingTestCase,
     BacktestingTestRunner,
 )
+from turtle_quant_1.logging import get_logger
 from turtle_quant_1.strategies.base import BaseStrategy
 from turtle_quant_1.strategies.engine import StrategyEngine
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def create_test_cases() -> List[BacktestingTestCase]:

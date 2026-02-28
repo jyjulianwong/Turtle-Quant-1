@@ -1,16 +1,14 @@
 """Portfolio management for backtesting."""
 
-import logging
 from datetime import datetime
 from typing import Dict, List, Optional
 
 import pandas as pd
 
 from turtle_quant_1.backtesting.models import PortfolioTransaction
+from turtle_quant_1.logging import get_logger
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Portfolio:
