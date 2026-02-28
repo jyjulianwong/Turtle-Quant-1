@@ -1,6 +1,10 @@
 """Helper functions for working with candle unit conversions."""
 
+from typing import Literal
+
 from turtle_quant_1.config import CANDLE_UNIT
+
+CandleUnit = Literal["5M", "15M", "30M", "1H", "2H", "4H", "1D", "1W"]
 
 _SUPPORTED_CANDLE_UNITS = ["5M", "15M", "30M", "1H", "2H", "4H", "1D", "1W"]
 assert CANDLE_UNIT in _SUPPORTED_CANDLE_UNITS
@@ -19,7 +23,7 @@ _UNIT_TO_5M = {
 }
 
 
-def convert_units(units: int, from_unit: str, to_unit: str) -> int:
+def convert_units(units: int, from_unit: CandleUnit, to_unit: CandleUnit) -> int:
     """Approximately convert units between different candle units.
 
     Args:

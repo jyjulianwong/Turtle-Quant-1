@@ -1,9 +1,9 @@
 import logging
-from typing import Literal
 
 import pandas as pd
 from pandas.core.groupby import DataFrameGroupBy
 
+from turtle_quant_1.strategies.helpers.candle_units import CandleUnit
 from turtle_quant_1.strategies.helpers.multiprocessing import FileCache
 
 logger = logging.getLogger(__name__)
@@ -11,8 +11,6 @@ logger.setLevel(logging.INFO)
 
 # Global cache instance
 _global_cache = FileCache()
-
-_Freq = Literal["15M", "30M", "1H", "2H", "4H", "1D", "1W"]
 
 
 def get_global_cache():
@@ -55,12 +53,12 @@ def _resample_ohlcv(
 
 class DataUnitConverter:
     @classmethod
-    def _get_cache_key(cls, symbol: str, freq: _Freq) -> str:
+    def _get_cache_key(cls, symbol: str, freq: CandleUnit) -> str:
         return f"{symbol}_DataUnitConverter_{freq}"
 
     @classmethod
     def preload_global_instance_cache(
-        cls, symbol: str, data: pd.DataFrame, freq: _Freq
+        cls, symbol: str, data: pd.DataFrame, freq: CandleUnit
     ) -> None:
         cache_key = cls._get_cache_key(symbol, freq)
         conversion_func = {
@@ -90,7 +88,7 @@ class DataUnitConverter:
         cls,
         symbol: str,
         data: pd.DataFrame,
-        freq: _Freq,
+        freq: CandleUnit,
         pandas_freq: str,
     ) -> pd.DataFrame:
         """Resample 5M data to an intraday or higher frequency using pd.Grouper."""

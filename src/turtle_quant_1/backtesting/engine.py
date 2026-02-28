@@ -21,6 +21,7 @@ from turtle_quant_1.config import (
 )
 from turtle_quant_1.data_processing.processor import DataProcessor
 from turtle_quant_1.strategies.base import BaseStrategyEngine
+from turtle_quant_1.strategies.helpers.candle_units import CandleUnit
 from turtle_quant_1.strategies.helpers.data_units import DataUnitConverter
 from turtle_quant_1.strategies.helpers.multiprocessing import FileCache
 from turtle_quant_1.strategies.helpers.support_resistance import SupResIndicator
@@ -51,6 +52,8 @@ class BacktestingEngine:
         max_history_days: int = MAX_HISTORY_DAYS,
         max_lookback_days: int = BACKTESTING_MAX_LOOKBACK_DAYS,
         max_lookforward_days: int = BACKTESTING_MAX_LOOKFORWARD_DAYS,
+        tick_interval: CandleUnit = "4H",
+        event_interval: CandleUnit = "30M",
     ):
         """Initialize the backtesting engine.
 
@@ -61,6 +64,12 @@ class BacktestingEngine:
             max_history_days: Maximum days of history to download.
             max_lookback_days: Days of data to use for strategy signals.
             max_lookforward_days: Days of data to simulate trading on.
+            tick_interval: Duration of one tick window as a candle-unit string
+                (e.g. "4H"). Passed through to TradingEngine to determine how
+                many candle events are replayed per tick.
+            event_interval: Duration of one event window as a candle-unit string
+                (e.g. "30M"). Passed through to TradingEngine to determine how
+                many candle events are replayed per event.
         """
         self.strategy_engine = strategy_engine
         self.symbols = symbols
@@ -73,6 +82,8 @@ class BacktestingEngine:
             strategy_engine=strategy_engine,
             portfolio=Portfolio(initial_capital),
             max_lookback_days=max_lookback_days,
+            tick_interval=tick_interval,
+            event_interval=event_interval,
         )
         # Convenience shorthand so the rest of this class can use self.portfolio directly.
         self.portfolio = self.trading_engine.portfolio
@@ -205,7 +216,7 @@ class BacktestingEngine:
         curr_tick = tick_start
 
         while curr_tick <= tick_end:
-            # TODO: Respect CANDLE_UNIT.
+            # NOTE: This must match `tick_interval`.
             # NOTE: Simulate the trigger schedule of the production environment.
             ticks.append(curr_tick.replace(hour=9, minute=0, second=0))
             ticks.append(curr_tick.replace(hour=12, minute=0, second=0))
@@ -263,7 +274,7 @@ class BacktestingEngine:
                 curr_data_mask = full_data["datetime"] <= timestamp
                 curr_data = full_data[curr_data_mask]
 
-                self.trading_engine.handle_tick(symbol, curr_data, timestamp)
+                self.trading_engine.handle_tick(symbol, curr_data)
 
                 curr_prices[symbol] = curr_data.iloc[-1]["Close"]
 

@@ -8,19 +8,31 @@ import pandas as pd
 from turtle_quant_1.backtesting.portfolio import Portfolio
 from turtle_quant_1.config import CANDLE_UNIT
 from turtle_quant_1.strategies.base import BaseStrategyEngine, Signal, SignalAction
-from turtle_quant_1.strategies.helpers.candle_units import convert_units
+from turtle_quant_1.strategies.helpers.candle_units import CandleUnit, convert_units
 
 logger = logging.getLogger(__name__)
 
 
 class TradingEngine:
-    """Engine that processes ticks and executes trading signals."""
+    """Trading engine that processes ticks and executes trading signals.
+
+    Nomenclature:
+    - Signal: A single trading signal that is independent of time.
+    - Tick: A single trigger of the trading engine, typically defined by when the
+        host environment gets spooled up and triggered.
+    - Event: A single candle at the interval of `CANDLE_UNIT`. This will be at a smaller
+        interval than a tick, i.e. between every tick, multiple events will have passed.
+    - "curr..." variables: The variable refers to the latest value at the time of the
+        **tick**, not at the event.
+    """
 
     def __init__(
         self,
         strategy_engine: BaseStrategyEngine,
         portfolio: Portfolio,
         max_lookback_days: int,
+        tick_interval: CandleUnit = "4H",
+        event_interval: CandleUnit = "30M",
     ):
         """Initialise the trading engine.
 
@@ -28,10 +40,18 @@ class TradingEngine:
             strategy_engine: The strategy engine used to generate signals.
             portfolio: The portfolio to trade against.
             max_lookback_days: Days of history fed to the strategy on each tick.
+            tick_interval: Duration of one tick window as a candle-unit string
+                (e.g. "4H"). Used together with CANDLE_UNIT to determine how
+                many candle events are replayed per tick.
+            event_interval: Duration of one event window as a candle-unit string
+                (e.g. "1H"). Used together with CANDLE_UNIT to determine how
+                many candle events are replayed per event.
         """
         self.strategy_engine = strategy_engine
         self.portfolio = portfolio
         self.max_lookback_days = max_lookback_days
+        self.tick_interval = tick_interval
+        self.event_interval = event_interval
 
         self.signal_history_list: list[dict] = []
         self.total_signals: int = 0
@@ -50,7 +70,12 @@ class TradingEngine:
         Returns:
             DataFrame slice covering the lookback window.
         """
+        logger.debug(f"Getting lookback data for {symbol} at index {current_index}...")
+
         if current_index < 1:
+            logger.debug(
+                f"Not enough data to get lookback data for {symbol} at index {current_index}"
+            )
             return pd.DataFrame(
                 columns=["datetime", "Open", "High", "Low", "Close", "Volume"]
             )
@@ -82,12 +107,16 @@ class TradingEngine:
             success = self.portfolio.buy(
                 symbol=symbol,
                 quantity=units,
-                take_profit_value=signal.take_profit_value
-                if signal.take_profit_value is not None
-                else float("inf"),
-                stop_loss_value=signal.stop_loss_value
-                if signal.stop_loss_value is not None
-                else 0.0,
+                take_profit_value=(
+                    signal.take_profit_value
+                    if signal.take_profit_value is not None
+                    else float("inf")
+                ),
+                stop_loss_value=(
+                    signal.stop_loss_value
+                    if signal.stop_loss_value is not None
+                    else 0.0
+                ),
                 price=price,
                 timestamp=timestamp,
             )
@@ -110,36 +139,37 @@ class TradingEngine:
         # HOLD – no action
         return False
 
-    def handle_tick(
+    def _handle_event(
         self,
         symbol: str,
         curr_data: pd.DataFrame,
-        timestamp: datetime,
+        event_index: int,
     ) -> None:
-        """Process a single tick for *symbol*.
+        """Process a single candle event for *symbol*.
 
         Args:
             symbol: Symbol being processed.
-            curr_data: All candles available up to (and including) *timestamp*.
-            timestamp: Current tick timestamp. Timezone-aware.
-
-        Returns:
-            The current close price when the tick was processed successfully,
-            or None when there was insufficient data to act.
+            event_index: Positional index of the current candle in *curr_data*.
+            curr_data: All candles available up to the current tick timestamp.
         """
-        curr_index = len(curr_data) - 1
-        lookback_data = self._get_lookback_data(symbol, curr_index, curr_data)
-
+        lookback_data = self._get_lookback_data(
+            symbol=symbol, current_index=event_index, data=curr_data
+        )
         if len(lookback_data) < 2:
-            return None
+            # There are not enough data points to generate a signal.
+            return
 
-        curr_price = lookback_data.iloc[-1]["Close"]
+        # NOTE: Use the latest price at the time of the tick (not the event),
+        # since the buy/sell price will be executed on the tick itself, i.e. delayed.
+        curr_price = curr_data.iloc[-1]["Close"]
+        # NOTE: Use the timestamp of the event, since the signal is based on the event.
+        event_timestamp = lookback_data.iloc[event_index]["datetime"]
 
-        signal = self.strategy_engine.generate_signal(lookback_data, symbol)
+        signal = self.strategy_engine.generate_signal(data=lookback_data, symbol=symbol)
         self.total_signals += 1
 
         transaction_executed = self._handle_signal(
-            symbol, signal, curr_price, timestamp
+            symbol=symbol, signal=signal, price=curr_price, timestamp=event_timestamp
         )
         if transaction_executed:
             self.total_transactions += 1
@@ -149,7 +179,7 @@ class TradingEngine:
 
         self.signal_history_list.append(
             {
-                "datetime": timestamp,
+                "datetime": event_timestamp,
                 "symbol": symbol,
                 "action": signal.action.value,
                 "score": signal.score,
@@ -157,3 +187,28 @@ class TradingEngine:
                 "executed": transaction_executed,
             }
         )
+
+    def handle_tick(
+        self,
+        symbol: str,
+        curr_data: pd.DataFrame,
+    ) -> None:
+        """Process a tick for *symbol* by replaying every event in the tick window.
+
+        Rather than acting on the latest candle alone, iterates over every candle
+        within the most recent tick window of *curr_data*, simulating an
+        event-driven system where each arriving candle is assessed individually.
+        The window size is determined by *tick_interval* set at construction time.
+
+        Args:
+            symbol: Symbol being processed.
+            curr_data: All candles available up to the current tick timestamp.
+        """
+        # Get the number of events between the last tick and the current tick.
+        n_units_per_event = convert_units(1, self.event_interval, CANDLE_UNIT)
+        n_events_per_tick = convert_units(1, self.tick_interval, self.event_interval)
+        n_units_per_tick = n_events_per_tick * n_units_per_event
+        last_tick_index = max(0, len(curr_data) - n_units_per_tick)
+
+        for i in range(last_tick_index, len(curr_data), n_units_per_event):
+            self._handle_event(symbol=symbol, curr_data=curr_data, event_index=i)
