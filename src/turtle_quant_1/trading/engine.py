@@ -1,16 +1,16 @@
 """Trading engine for executing trading signals."""
 
-import logging
 from datetime import datetime
 
 import pandas as pd
 
 from turtle_quant_1.backtesting.portfolio import Portfolio
 from turtle_quant_1.config import CANDLE_UNIT
+from turtle_quant_1.logging import get_logger
 from turtle_quant_1.strategies.base import BaseStrategyEngine, Signal, SignalAction
 from turtle_quant_1.strategies.helpers.candle_units import CandleUnit, convert_units
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TradingEngine:
@@ -163,7 +163,7 @@ class TradingEngine:
         # since the buy/sell price will be executed on the tick itself, i.e. delayed.
         curr_price = curr_data.iloc[-1]["Close"]
         # NOTE: Use the timestamp of the event, since the signal is based on the event.
-        event_timestamp = lookback_data.iloc[event_index]["datetime"]
+        event_timestamp = curr_data.iloc[event_index]["datetime"]
 
         signal = self.strategy_engine.generate_signal(data=lookback_data, symbol=symbol)
         self.total_signals += 1
