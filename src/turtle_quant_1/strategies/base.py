@@ -76,8 +76,8 @@ class BaseStrategy(ABC):
             symbol: The symbol being analyzed.
 
         Returns:
-            Score between -1.0 (strong sell) and +1.0 (strong buy).
-            0.0 represents hold/neutral.
+            Score array with each value between -1.0 (strong sell) and +1.0 (strong buy),
+            indexed by the original data's index. 0.0 represents hold/neutral.
         """
         raise NotImplementedError()
 

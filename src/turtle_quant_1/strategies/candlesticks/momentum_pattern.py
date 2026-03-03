@@ -47,13 +47,11 @@ class MomentumPattern(BaseStrategy):
         # Check for any occurrence of the pattern in last 6 candles
         scores = scores.fillna(0).rolling(window=6).sum().clip(-1, 1)
 
-        return pd.Series(
-            data=scores.values, index=pd.to_datetime(data["datetime"]), dtype=float
-        )
+        return pd.Series(data=scores.values, index=data.index, dtype=float)
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
         scores = self._get_score_for_candles_vecd(data, symbol)
-        # Check for any occurrence of the pattern in last 6 candles
-        scores = scores.fillna(0).rolling(window=6).sum().clip(-1, 1)
+        # Check for any occurrence of the pattern in last 10 candles
+        scores = scores.fillna(0).rolling(window=10, min_periods=1).sum().clip(-1, 1)
 
         return float(scores.iloc[-1])

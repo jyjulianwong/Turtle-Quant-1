@@ -120,7 +120,7 @@ class RsiSupResDivergence(BaseStrategy):
             symbol: The symbol to generate the scores for.
 
         Returns:
-            The historical scores.
+            Score array with each value between -1.0 and +1.0, indexed by the original data's index.
         """
 
         self.validate_data(data)
@@ -138,7 +138,7 @@ class RsiSupResDivergence(BaseStrategy):
 
         return pd.Series(
             data=divergence_signals.clip(-1, 1).values,
-            index=pd.to_datetime(data["datetime"]),
+            index=data.index,
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
