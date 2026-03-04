@@ -15,7 +15,7 @@ _SIGNAL_COLORS = {"BUY": "limegreen", "HOLD": "steelblue", "SELL": "tomato"}
 def _normalize_dt(series: pd.Series) -> pd.Series:
     """Return a tz-naive UTC pandas Series of datetimes for consistent comparison."""
     converted = pd.to_datetime(series, utc=True)
-    return converted.dt.tz_localize(None)
+    return converted.dt.tz_localize(None).astype("datetime64[s]")
 
 
 def _build_tick_params(

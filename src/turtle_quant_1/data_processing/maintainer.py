@@ -7,6 +7,7 @@ import pandas as pd
 import pytz
 
 from turtle_quant_1.config import (
+    CANDLE_UNIT,
     HOST_TIMEZONE,
     LIVE_SYMBOLS,
     MAX_CANDLE_GAPS_TO_FILL,
@@ -23,6 +24,7 @@ from turtle_quant_1.data_processing.datetimes import (
     get_symbol_timezone,
 )
 from turtle_quant_1.logging import get_logger
+from turtle_quant_1.strategies.helpers.candle_units import CandleUnit
 
 logger = get_logger(__name__)
 
@@ -33,15 +35,20 @@ class DataMaintainer(BaseDataMaintainer):
     def __init__(
         self,
         symbols: Optional[List[str]] = None,
+        freq: CandleUnit = CANDLE_UNIT,
         fetcher: Optional[BaseDataFetcher] = None,
     ):
         """Initialize the data maintainer.
 
         Args:
             symbols: List of symbols to maintain. If None, uses SYMBOLS from config.
+            freq: Candle frequency for the data being maintained. The maintainer
+                always stores raw data at the 5M atomic resolution; this value
+                is retained for informational purposes and future use.
             fetcher: Data fetcher to use. If None, uses YFinanceDataFetcher.
         """
         self.symbols = symbols or LIVE_SYMBOLS
+        self.freq = freq
         self.fetcher = fetcher or YFinanceDataFetcher(symbols=self.symbols)
 
     def _get_data_gaps(
@@ -204,16 +211,18 @@ class DataMaintainer(BaseDataMaintainer):
             DataFrame with gaps appended.
         """
         # Set default dates if not provided
-        end_date = end_date or datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
-        start_date = start_date or (end_date - timedelta(days=MAX_HISTORY_DAYS))
+        now_date = datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
+        end_date = end_date or now_date
+        start_date = start_date or (now_date - timedelta(days=MAX_HISTORY_DAYS))
 
         existing_data = data.copy()
 
         # Fetch data
-        fetched_data = self.fetcher.fetch_5min_ohlcv(
+        fetched_data = self.fetcher.fetch_ohlcv(
             symbol=symbol,
             start_date=start_date,
             end_date=end_date,
+            freq=self.freq,
         )
 
         # Combine with existing data if any
@@ -242,11 +251,11 @@ class DataMaintainer(BaseDataMaintainer):
 
     def _delete_outdated_data(self, symbol: str, data: pd.DataFrame) -> pd.DataFrame:
         """Delete outdated data for a symbol."""
-        raw_end_date = datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
-        raw_start_date = raw_end_date - timedelta(days=MAX_HISTORY_DAYS)
+        raw_now_date = datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
+        raw_start_date = raw_now_date - timedelta(days=MAX_HISTORY_DAYS)
 
         start_date, end_date = get_expected_market_hours_bounds(
-            symbol, raw_start_date, raw_end_date
+            symbol=symbol, start_date=raw_start_date, end_date=raw_now_date
         )
 
         # Delete data outside of the expected market hours bounds
@@ -270,8 +279,9 @@ class DataMaintainer(BaseDataMaintainer):
         Returns:
             DataFrame with updated data.
         """
-        end_date = end_date or datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
-        start_date = end_date - timedelta(days=MAX_HISTORY_DAYS)
+        now_date = datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
+        end_date = end_date or now_date
+        start_date = now_date - timedelta(days=MAX_HISTORY_DAYS)
 
         logger.info(
             f"Ensuring continuous data for {symbol} from {start_date} to {end_date}..."

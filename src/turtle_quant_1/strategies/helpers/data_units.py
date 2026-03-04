@@ -52,12 +52,14 @@ def _resample_ohlcv(
 class DataUnitConverter:
     @classmethod
     def _get_cache_key(cls, symbol: str, freq: CandleUnit) -> str:
+        """NOTE: Used for backtesting only."""
         return f"{symbol}_DataUnitConverter_{freq}"
 
     @classmethod
     def preload_global_instance_cache(
         cls, symbol: str, data: pd.DataFrame, freq: CandleUnit
     ) -> None:
+        """NOTE: Used for backtesting only."""
         cache_key = cls._get_cache_key(symbol, freq)
         conversion_func = {
             "15M": cls.convert_to_15m_data,

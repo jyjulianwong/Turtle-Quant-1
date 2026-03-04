@@ -215,7 +215,7 @@ class StnryFibonacciRetrace(BaseSupResStrategy):
             raise ValueError(f"Data must contain {required_cols} columns")
 
         # TODO: This is a magic number.
-        data_resampled = DataUnitConverter.convert_to_1d_data(symbol, data)
+        data_resampled = DataUnitConverter.convert_to_1h_data(symbol, data)
         level_values = self._calc_sup_res_levels(data_resampled)
 
         # Create output DataFrame with 1-to-1 mapping to original data

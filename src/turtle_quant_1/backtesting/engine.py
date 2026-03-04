@@ -6,7 +6,6 @@ from typing import Dict, List, Tuple
 import pandas as pd
 import pytz
 import quantstats as qs
-from pandas.tseries.offsets import BDay
 from tqdm import tqdm
 
 from turtle_quant_1.backtesting.models import PortfolioSummary, TestCaseResults
@@ -137,8 +136,7 @@ class BacktestingEngine:
 
         # Calculate date ranges
         end_date = datetime.now().astimezone(pytz.timezone(HOST_TIMEZONE))
-        # Exclude weekends (but not holidays) when calculating the difference
-        start_date = end_date - BDay(self.max_history_days)
+        start_date = end_date - timedelta(days=self.max_history_days)
 
         try:
             # Load the data using DataProcessor

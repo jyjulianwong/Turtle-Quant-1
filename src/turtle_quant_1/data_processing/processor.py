@@ -5,7 +5,7 @@ from typing import List, Optional
 
 import pandas as pd
 
-from turtle_quant_1.config import LIVE_SYMBOLS
+from turtle_quant_1.config import CANDLE_UNIT, LIVE_SYMBOLS
 from turtle_quant_1.data_processing.adapters.gcs_storage_adapter import (
     GCSDataStorageAdapter,
 )
@@ -19,6 +19,7 @@ from turtle_quant_1.data_processing.base import (
 from turtle_quant_1.data_processing.datetimes import get_expected_market_hours_bounds
 from turtle_quant_1.data_processing.maintainer import DataMaintainer
 from turtle_quant_1.logging import get_logger
+from turtle_quant_1.strategies.helpers.candle_units import CandleUnit
 
 logger = get_logger(__name__)
 
@@ -34,6 +35,7 @@ class DataProcessor(BaseDataProcessor):
     def __init__(
         self,
         symbols: Optional[List[str]] = None,
+        freq: CandleUnit = CANDLE_UNIT,
         storage: Optional[BaseDataStorageAdapter] = None,
         fetcher: Optional[BaseDataFetcher] = None,
         maintainer: Optional[BaseDataMaintainer] = None,
@@ -42,16 +44,18 @@ class DataProcessor(BaseDataProcessor):
 
         Args:
             symbols: List of symbols to process. If None, uses SYMBOLS from config.
+            freq: Candle frequency to use for fetching and processing data.
             storage: Data storage to use. If None, uses GCSDataStorage.
             fetcher: Data fetcher to use. If None, uses YFinanceDataFetcher.
             maintainer: Data maintainer to use. If None, uses DataMaintainer.
         """
         self.symbols = symbols or LIVE_SYMBOLS
+        self.freq = freq
 
         self.storage = storage or GCSDataStorageAdapter()
         self.fetcher = fetcher or YFinanceDataFetcher(symbols=self.symbols)
         self.maintainer = maintainer or DataMaintainer(
-            symbols=self.symbols, fetcher=self.fetcher
+            symbols=self.symbols, freq=self.freq, fetcher=self.fetcher
         )
 
         self.data_cache: dict[str, pd.DataFrame] = {}
@@ -79,7 +83,7 @@ class DataProcessor(BaseDataProcessor):
         if DANGER_CLEAR_CACHE:
             self.data_cache.pop(symbol, None)
         if DANGER_CLEAR_STORAGE:
-            self.storage.delete_ohlcv_data(symbol)
+            self.storage.delete_ohlcv_data(symbol, freq=self.freq)
             self.data_cache.pop(symbol, None)
 
         is_data_updated = False
@@ -98,22 +102,25 @@ class DataProcessor(BaseDataProcessor):
                 symbol=symbol,
                 start_date=None,  # TODO: Work out why.
                 end_date=None,  # TODO: Work out why.
+                freq=self.freq,
             )
 
         if df.empty:
             logger.warning(
                 f"No data found for {symbol}. Fetching from {self.fetcher}..."
             )
-            # TODO: Respect CANDLE_UNIT.
-            df = self.fetcher.fetch_5min_ohlcv(
+            df = self.fetcher.fetch_ohlcv(
                 symbol=symbol,
                 start_date=_start_date,
                 end_date=_end_date,
+                freq=self.freq,
             )
             is_data_updated = True
 
         if impute_data:
-            _df = self.maintainer.impute_data(symbol, df, _end_date)
+            _df = self.maintainer.impute_data(
+                symbol=symbol, data=df, end_date=_end_date
+            )
             if not _df.index.equals(df.index):
                 is_data_updated = True
             df = _df
@@ -135,4 +142,4 @@ class DataProcessor(BaseDataProcessor):
             symbol: Symbol to save data for.
             data: DataFrame with data.
         """
-        self.storage.save_ohlcv_data(symbol=symbol, data=data)
+        self.storage.save_ohlcv_data(symbol=symbol, data=data, freq=self.freq)

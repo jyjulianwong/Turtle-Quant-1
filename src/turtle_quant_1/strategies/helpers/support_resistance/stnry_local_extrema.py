@@ -21,7 +21,7 @@ class StnryLocalExtrema(BaseSupResStrategy):
 
     def __init__(
         self,
-        strong_peak_distance: int = 10,  # TODO: Respect CANDLE_UNIT.
+        strong_peak_distance: int = 10,
         strong_peak_prominence_pct: float = 0.01,
         peak_distance: int = 5,
         peak_rank_width: float = 2.0,

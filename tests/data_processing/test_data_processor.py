@@ -89,6 +89,7 @@ class TestDataProcessor:
             symbol=symbol,
             start_date=None,  # TODO: Work out why.
             end_date=None,  # TODO: Work out why.
+            freq="5M",
         )
         assert not mock_storage_adapter.save_ohlcv_data.called
         assert symbol in data_processor.data_cache
@@ -105,7 +106,7 @@ class TestDataProcessor:
         # Setup
         symbol = "AAPL"
         mock_storage_adapter.load_ohlcv_data.return_value = pd.DataFrame()
-        mock_fetcher.fetch_5min_ohlcv.return_value = sample_ohlcv_data
+        mock_fetcher.fetch_ohlcv.return_value = sample_ohlcv_data
 
         # Test
         result = data_processor.load_data(
@@ -121,15 +122,18 @@ class TestDataProcessor:
             symbol=symbol,
             start_date=None,  # TODO: Work out why.
             end_date=None,  # TODO: Work out why.
+            freq="5M",
         )
-        mock_fetcher.fetch_5min_ohlcv.assert_called_once_with(
+        mock_fetcher.fetch_ohlcv.assert_called_once_with(
             symbol=symbol,
             start_date=dates["start"],
             end_date=dates["end"],
+            freq="5M",
         )
         mock_storage_adapter.save_ohlcv_data.assert_called_once_with(
             symbol=symbol,
             data=sample_ohlcv_data,
+            freq="5M",
         )
         assert symbol in data_processor.data_cache
 
@@ -157,7 +161,7 @@ class TestDataProcessor:
         # Assertions
         pd.testing.assert_frame_equal(result, sample_ohlcv_data)
         assert not mock_storage_adapter.load_ohlcv_data.called
-        assert not mock_fetcher.fetch_5min_ohlcv.called
+        assert not mock_fetcher.fetch_ohlcv.called
         assert not mock_storage_adapter.save_ohlcv_data.called
 
     def test_load_data_with_imputation(
@@ -198,13 +202,14 @@ class TestDataProcessor:
         # Assertions
         pd.testing.assert_frame_equal(result, imputed_data)
         mock_maintainer.impute_data.assert_called_once_with(
-            symbol,
-            sample_ohlcv_data,
-            dates["end"],
+            symbol=symbol,
+            data=sample_ohlcv_data,
+            end_date=dates["end"],
         )
         mock_storage_adapter.save_ohlcv_data.assert_called_once_with(
             symbol=symbol,
             data=imputed_data,
+            freq="5M",
         )
         assert symbol in data_processor.data_cache
 
@@ -225,4 +230,5 @@ class TestDataProcessor:
         mock_storage_adapter.save_ohlcv_data.assert_called_once_with(
             symbol=symbol,
             data=sample_ohlcv_data,
+            freq="5M",
         )
