@@ -112,7 +112,7 @@ class BacktestingEngine:
 
             # This reduces duplicated calculations across all SupResIndicator instances,
             # because the cache is a global singleton.
-            # This needs to be done before the StrategyEngine fires off separate processes.
+            # This needs to be done before the BaseStrategyEngine fires off separate processes.
             SupResIndicator.preload_global_instance_cache(symbol, data)
 
         # For quantstats metrics

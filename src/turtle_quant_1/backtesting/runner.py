@@ -14,7 +14,7 @@ from turtle_quant_1.config import (
     MAX_HISTORY_DAYS,
 )
 from turtle_quant_1.logging import get_logger
-from turtle_quant_1.strategies.engine import StrategyEngine
+from turtle_quant_1.strategies.engine import WeightedMeanStrategyEngine
 
 logger = get_logger(__name__)
 
@@ -25,7 +25,7 @@ class BacktestingTestCase:
 
     name: str
     description: str
-    strategy_engine: StrategyEngine
+    strategy_engine: WeightedMeanStrategyEngine
     initial_capital: float
     symbols: List[str] = field(default_factory=lambda: BACKTESTING_SYMBOLS)
     max_history_days: int = field(default_factory=lambda: MAX_HISTORY_DAYS)

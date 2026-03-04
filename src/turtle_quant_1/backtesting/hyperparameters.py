@@ -8,7 +8,7 @@ from turtle_quant_1.backtesting.engine import BacktestingEngine
 from turtle_quant_1.backtesting.models import TestCaseResults
 from turtle_quant_1.logging import get_logger
 from turtle_quant_1.strategies.base import BaseStrategy
-from turtle_quant_1.strategies.engine import StrategyEngine
+from turtle_quant_1.strategies.engine import WeightedMeanStrategyEngine
 
 logger = get_logger(__name__)
 
@@ -64,7 +64,7 @@ def run_backtest(
     Returns:
         BacktestingResults object
     """
-    strategy_engine = StrategyEngine.from_config(config)
+    strategy_engine = WeightedMeanStrategyEngine.from_config(config)
 
     # Create backtesting engine
     backtesting_engine = BacktestingEngine(

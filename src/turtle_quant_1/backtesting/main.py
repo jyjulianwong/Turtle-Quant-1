@@ -12,7 +12,7 @@ from turtle_quant_1.backtesting.runner import (
 )
 from turtle_quant_1.logging import get_logger
 from turtle_quant_1.strategies.base import BaseStrategy
-from turtle_quant_1.strategies.engine import StrategyEngine
+from turtle_quant_1.strategies.engine import WeightedMeanStrategyEngine
 
 logger = get_logger(__name__)
 
@@ -30,7 +30,7 @@ def create_test_cases() -> List[BacktestingTestCase]:
 
     weights = {}
 
-    strategy_engine = StrategyEngine(
+    strategy_engine = WeightedMeanStrategyEngine(
         strategies=strategies,
         weights=weights,
         buy_unit_threshold=0.2,

@@ -144,7 +144,7 @@ class TradingEngine:
         symbol: str,
         curr_data: pd.DataFrame,
         event_index: int,
-    ) -> None:
+    ) -> Signal:
         """Process a single candle event for *symbol*.
 
         Args:
@@ -157,36 +157,18 @@ class TradingEngine:
         )
         if len(lookback_data) < 2:
             # There are not enough data points to generate a signal.
-            return
-
-        # NOTE: Use the latest price at the time of the tick (not the event),
-        # since the buy/sell price will be executed on the tick itself, i.e. delayed.
-        curr_price = curr_data.iloc[-1]["Close"]
-        # NOTE: Use the timestamp of the event, since the signal is based on the event.
-        event_timestamp = curr_data.iloc[event_index]["datetime"]
+            return Signal(
+                strategies=[],
+                scores={},
+                weights={},
+                action=SignalAction.HOLD,
+                score=0.0,
+            )
 
         signal = self.strategy_engine.generate_signal(data=lookback_data, symbol=symbol)
         self.total_signals += 1
 
-        transaction_executed = self._handle_signal(
-            symbol=symbol, signal=signal, price=curr_price, timestamp=event_timestamp
-        )
-        if transaction_executed:
-            self.total_transactions += 1
-
-        self.portfolio.check_take_profit_triggers({symbol: curr_price})
-        self.portfolio.check_stop_loss_triggers({symbol: curr_price})
-
-        self.signal_history_list.append(
-            {
-                "datetime": event_timestamp,
-                "symbol": symbol,
-                "action": signal.action.value,
-                "score": signal.score,
-                "strategies": signal.strategies,
-                "executed": transaction_executed,
-            }
-        )
+        return signal
 
     def handle_tick(
         self,
@@ -210,5 +192,47 @@ class TradingEngine:
         n_units_per_tick = n_events_per_tick * n_units_per_event
         last_tick_index = max(0, len(curr_data) - n_units_per_tick)
 
+        signals: list[Signal] = []
         for i in range(last_tick_index, len(curr_data), n_units_per_event):
-            self._handle_event(symbol=symbol, curr_data=curr_data, event_index=i)
+            signal = self._handle_event(
+                symbol=symbol, curr_data=curr_data, event_index=i
+            )
+            signals.append(signal)
+
+        # NOTE: Use the latest price at the time of the tick (not the event),
+        # since the buy/sell price will be executed on the tick itself, i.e. delayed.
+        curr_price = curr_data.iloc[-1]["Close"]
+        # NOTE: Use the timestamp of the tick, since the signal is based on the tick.
+        curr_timestamp = curr_data.iloc[-1]["datetime"]
+
+        b_signals = [signal for signal in signals if signal.action == SignalAction.BUY]
+        h_signals = [signal for signal in signals if signal.action == SignalAction.HOLD]
+        s_signals = [signal for signal in signals if signal.action == SignalAction.SELL]
+        if len(s_signals) > 0:
+            signal = s_signals[0]
+        elif len(b_signals) > 0:
+            signal = b_signals[0]
+        elif len(h_signals) > 0:
+            signal = h_signals[0]
+        else:
+            raise ValueError(f"No signal found for {symbol} at {curr_timestamp}")
+
+        transaction_executed = self._handle_signal(
+            symbol=symbol, signal=signal, price=curr_price, timestamp=curr_timestamp
+        )
+        if transaction_executed:
+            self.total_transactions += 1
+
+        self.portfolio.check_take_profit_triggers({symbol: curr_price})
+        self.portfolio.check_stop_loss_triggers({symbol: curr_price})
+
+        self.signal_history_list.append(
+            {
+                "datetime": curr_timestamp,
+                "symbol": symbol,
+                "action": signal.action.value,
+                "score": signal.score,
+                "strategies": signal.strategies,
+                "executed": transaction_executed,
+            }
+        )

@@ -111,7 +111,7 @@ class _ExecutorManager:
 _executor_manager = _ExecutorManager()
 
 
-class StrategyEngine(BaseStrategyEngine):
+class WeightedMeanStrategyEngine(BaseStrategyEngine):
     """Strategy engine that aggregates multiple strategies to generate trading signals.
 
     The engine combines multiple strategy scores using weighted averages and converts
@@ -149,7 +149,7 @@ class StrategyEngine(BaseStrategyEngine):
         return strategy_classes
 
     @classmethod
-    def from_config(cls, config: Dict[str, Any]) -> "StrategyEngine":
+    def from_config(cls, config: Dict[str, Any]) -> "WeightedMeanStrategyEngine":
         """Create a strategy engine from a configuration dictionary."""
         # Discover strategy classes on module import
         strategy_types = cls._get_strategy_types()
@@ -292,7 +292,7 @@ class StrategyEngine(BaseStrategyEngine):
         """Aggregate scores from all strategies using weighted average with parallel processing.
 
         This method uses instance-level multiprocessing for better CPU utilization and
-        process safety when multiple StrategyEngine instances are used simultaneously.
+        process safety when multiple WeightedMeanStrategyEngine instances are used simultaneously.
 
         Args:
             data: DataFrame with OHLCV data.
