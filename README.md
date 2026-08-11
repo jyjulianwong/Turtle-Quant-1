@@ -1,6 +1,6 @@
 # Turtle Quant 1
 
-<img src="docs/turtle.webp" alt="drawing" style="width:96px;"/>
+<img src="https://raw.githubusercontent.com/jyjulianwong/Turtle-Quant-1/main/docs/turtle.webp" alt="drawing" style="width:96px;"/>
 
 ## Tech stack
 
@@ -80,9 +80,9 @@ For naming conventions, refer to https://stepan.wtf/cloud-naming-convention/.
 ### Continuous deployment
 
 Deployment is fully automated and handled by GitHub Actions. Refer to: 
-- [`.github/workflows/main-deploy.yaml`](.github/workflows/main-deploy.yaml)
-- [`.github/workflows/main-docs.yaml`](.github/workflows/main-docs.yaml)
-- [`.github/workflows/dev-test.yaml`](.github/workflows/dev-test.yaml)
+- [`.github/workflows/main-deploy.yaml`](https://github.com/jyjulianwong/Turtle-Quant-1/blob/main/.github/workflows/main-deploy.yaml)
+- [`.github/workflows/main-docs.yaml`](https://github.com/jyjulianwong/Turtle-Quant-1/blob/main/.github/workflows/main-docs.yaml)
+- [`.github/workflows/dev-test.yaml`](https://github.com/jyjulianwong/Turtle-Quant-1/blob/main/.github/workflows/dev-test.yaml)
 
 ## Google Cloud administration
 
