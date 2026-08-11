@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-08-11)
+
+### Features
+
+- Migrated from pdoc to mkdocs ([#5](https://github.com/jyjulianwong/Turtle-Quant-1/pull/5),
+  [`353477f`](https://github.com/jyjulianwong/Turtle-Quant-1/commit/353477fa41ea005b9e013bac2a0aa19b00229f5e))
+
+
 ## v1.2.1 (2026-02-25)
 
 ### Bug Fixes
