@@ -2,7 +2,6 @@ import atexit
 import contextlib
 import fcntl
 import hashlib
-import logging
 import os
 import pickle
 import tempfile
@@ -14,8 +13,9 @@ from multiprocessing.synchronize import Lock as LockType
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+from turtle_quant_1.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class BaseCache(ABC):

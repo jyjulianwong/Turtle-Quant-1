@@ -34,7 +34,7 @@ if not GCLOUD_STB_DATA_NAME:
     raise ValueError("TURTLEQUANT1_GCLOUD_STB_DATA_NAME environment variable not set")
 
 # Path shortcuts
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 PACKAGE_ROOT = Path(__file__).parent
 
 # Performance
@@ -44,11 +44,11 @@ MAX_WORKERS = int(os.getenv("TURTLEQUANT1_MAX_WORKERS", 0))
 
 # Constants
 # The base unit for each data point
-CANDLE_UNIT = "HOUR"
+CANDLE_UNIT = "5M"
 # The maximum amount of data that is ever stored in the database for each symbol
 # Make sure the lookback and lookforward periods are less than this value
-# The history limit for YFinance is 730 days
-MAX_HISTORY_DAYS = 700
+# The history limit for YFinance 5-minute data is 60 days
+MAX_HISTORY_DAYS = 60
 # In case of missing data, the maximum number of gaps to impute
 # This is to prevent hitting API limits when fetching data to fill gaps
 MAX_CANDLE_GAPS_TO_FILL = 100
@@ -131,21 +131,13 @@ SYMBOL_MARKETS = {
 
 # Backtesting constants
 # The maximum lookback period for backtesting
-BACKTESTING_MAX_LOOKBACK_DAYS = 365
+BACKTESTING_MAX_LOOKBACK_DAYS = 30
 # The maximum lookforward period for backtesting
-# (700 - 365)
-BACKTESTING_MAX_LOOKFORWARD_DAYS = 335
+# (60 - 30)
+BACKTESTING_MAX_LOOKFORWARD_DAYS = 30
 # The symbols to use for backtesting
 BACKTESTING_SYMBOLS = [
     "SPY",
-    "GLD",
-    "XOM",
-    "CVX",
-    "JNJ",
-    "BA",
-    "LMT",
-    "MSFT",
-    "GOOG",
 ]
 
 # Live mode constants

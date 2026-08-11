@@ -29,7 +29,7 @@ class BollingerBand(BaseStrategy):
 
         if (
             lookback_candles
-            > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "DAY", CANDLE_UNIT) * 0.5
+            > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "1D", CANDLE_UNIT) * 0.5
         ):
             raise ValueError(
                 f"This strategy relies on too many lookback candles ({lookback_candles}) for meaningful evaluation to be done. "
@@ -46,7 +46,7 @@ class BollingerBand(BaseStrategy):
             symbol: The symbol to use for the strategy.
 
         Returns:
-            Score array with each value between -1.0 and +1.0, indexed by datetime
+            Score array with each value between -1.0 and +1.0, indexed by the original data's index.
         """
         self.validate_data(data)
 
@@ -62,7 +62,7 @@ class BollingerBand(BaseStrategy):
 
         return pd.Series(
             data=score.clip(-1, 1).fillna(0).values,
-            index=pd.to_datetime(data["datetime"]),
+            index=data.index,
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:

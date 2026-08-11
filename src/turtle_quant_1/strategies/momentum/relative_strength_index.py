@@ -28,7 +28,7 @@ class RelativeStrengthIndex(BaseStrategy):
 
         if (
             lookback_candles
-            > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "DAY", CANDLE_UNIT) * 0.5
+            > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "1D", CANDLE_UNIT) * 0.5
         ):
             raise ValueError(
                 f"This strategy relies on too many lookback candles ({lookback_candles}) for meaningful evaluation to be done. "
@@ -45,11 +45,12 @@ class RelativeStrengthIndex(BaseStrategy):
             symbol: The symbol being analyzed.
 
         Returns:
-            Score array with each value between -1.0 and +1.0, indexed by datetime
+            Score array with each value between -1.0 and +1.0, indexed by the original data's index.
         """
         self.validate_data(data)
 
-        data_resampled = DataUnitConverter.convert_to_daily_data(symbol, data)
+        # TODO: This is a magic number.
+        data_resampled = DataUnitConverter.convert_to_1h_data(symbol, data)
 
         delta = data_resampled["Close"].diff()
         gain = delta.clip(lower=0)
@@ -68,7 +69,7 @@ class RelativeStrengthIndex(BaseStrategy):
 
         return pd.Series(
             data=((50 - rsi) / 50).clip(-1, 1).fillna(0).values,  # Rescale to -1 to +1
-            index=pd.to_datetime(data["datetime"]),
+            index=data.index,
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
@@ -87,9 +88,7 @@ class RelativeStrengthIndex(BaseStrategy):
             # This depends on the resampling of the data
             data.iloc[
                 -(
-                    round(
-                        convert_units(self.lookback_candles, "DAY", CANDLE_UNIT) * 2.0
-                    )
+                    round(convert_units(self.lookback_candles, "1H", CANDLE_UNIT) * 2.0)
                 ) :
             ],
             symbol,

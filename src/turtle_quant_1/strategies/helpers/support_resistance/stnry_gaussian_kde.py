@@ -72,7 +72,7 @@ class StnryGaussianKde(BaseSupResStrategy):
     def _calc_sup_res_levels(
         self,
         data: pd.DataFrame,
-        lookback: int = convert_units(2, "MONTH", CANDLE_UNIT),
+        lookback: int = convert_units(8, "1W", CANDLE_UNIT),
         first_w: float = 0.01,
         atr_mult: float = 3.00,
         prom_thresh: float = 0.25,

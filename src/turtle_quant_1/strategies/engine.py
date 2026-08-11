@@ -3,7 +3,6 @@
 import atexit
 import importlib
 import inspect
-import logging
 import pkgutil
 import signal
 import threading
@@ -15,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from turtle_quant_1.config import CANDLE_UNIT, MAX_WORKERS
+from turtle_quant_1.logging import get_logger
 from turtle_quant_1.strategies import candlesticks, mean_reversion, momentum
 from turtle_quant_1.strategies.base import (
     BaseStrategy,
@@ -25,8 +25,7 @@ from turtle_quant_1.strategies.base import (
 from turtle_quant_1.strategies.helpers.candle_units import convert_units
 from turtle_quant_1.strategies.helpers.helpers import calc_atr_value
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger(__name__)
 
 
 def _run_strategy_process(
@@ -112,7 +111,7 @@ class _ExecutorManager:
 _executor_manager = _ExecutorManager()
 
 
-class StrategyEngine(BaseStrategyEngine):
+class WeightedMeanStrategyEngine(BaseStrategyEngine):
     """Strategy engine that aggregates multiple strategies to generate trading signals.
 
     The engine combines multiple strategy scores using weighted averages and converts
@@ -150,7 +149,7 @@ class StrategyEngine(BaseStrategyEngine):
         return strategy_classes
 
     @classmethod
-    def from_config(cls, config: Dict[str, Any]) -> "StrategyEngine":
+    def from_config(cls, config: Dict[str, Any]) -> "WeightedMeanStrategyEngine":
         """Create a strategy engine from a configuration dictionary."""
         # Discover strategy classes on module import
         strategy_types = cls._get_strategy_types()
@@ -293,7 +292,7 @@ class StrategyEngine(BaseStrategyEngine):
         """Aggregate scores from all strategies using weighted average with parallel processing.
 
         This method uses instance-level multiprocessing for better CPU utilization and
-        process safety when multiple StrategyEngine instances are used simultaneously.
+        process safety when multiple WeightedMeanStrategyEngine instances are used simultaneously.
 
         Args:
             data: DataFrame with OHLCV data.
@@ -372,7 +371,7 @@ class StrategyEngine(BaseStrategyEngine):
         k = 3  # Multiplier
         atr = calc_atr_value(
             data=data,
-            lookback=convert_units(3, "MONTH", CANDLE_UNIT),
+            lookback=convert_units(4, "1W", CANDLE_UNIT),
             return_log_space=False,
         )
         return curr_price - k * atr

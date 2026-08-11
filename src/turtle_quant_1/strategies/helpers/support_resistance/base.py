@@ -1,16 +1,15 @@
 """Base class for support and resistance strategies."""
 
-import logging
 from abc import ABC, abstractmethod
 
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MultiLabelBinarizer
 
+from turtle_quant_1.logging import get_logger
 from turtle_quant_1.strategies.helpers.multiprocessing import FileCache
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger(__name__)
 
 # Global SupResIndicator instance
 _global_sup_res_indicator = FileCache()

@@ -4,7 +4,7 @@ This document explains compute optimization work that has been done for v1.2.0.
 
 ## Pre-Optimization Program Profiling Analysis
 
-The program profiling notebook ([notebooks/snakeviz.ipynb](notebooks/snakeviz.ipynb)) was run with `TURTLEQUANT1_MAX_WORKERS=0` to ensure all methods were profiled.
+The program profiling notebook ([notebooks/snakeviz.ipynb](https://github.com/jyjulianwong/Turtle-Quant-1/blob/main/notebooks/snakeviz.ipynb)) was run with `TURTLEQUANT1_MAX_WORKERS=0` to ensure all methods were profiled.
 
 | Strategies | Symbols | Timestamps | Run Time (mins) |
 |------------|---------|------------|-----------------|
@@ -30,7 +30,7 @@ The method names that were consuming the majority of "unexplained" time were:
 
 ## Post-Optimization Program Profiling Analysis
 
-The program profiling notebook ([notebooks/snakeviz.ipynb](notebooks/snakeviz.ipynb)) was run with `TURTLEQUANT1_MAX_WORKERS=0` to ensure all methods were profiled.
+The program profiling notebook ([notebooks/snakeviz.ipynb](https://github.com/jyjulianwong/Turtle-Quant-1/blob/main/notebooks/snakeviz.ipynb)) was run with `TURTLEQUANT1_MAX_WORKERS=0` to ensure all methods were profiled.
 
 | Strategies | Symbols | Timestamps | Run Time (mins) |
 |------------|---------|------------|-----------------|

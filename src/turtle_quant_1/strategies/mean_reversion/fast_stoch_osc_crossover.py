@@ -36,7 +36,7 @@ class FastStochOscCrossover(BaseStrategy):
         self.d_period = d_period
 
         # This depends on the resampling of the data
-        if k_period > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "DAY", "DAY"):
+        if k_period > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "1D", "1H"):
             raise ValueError(
                 f"This strategy relies on too many lookback candles ({k_period}) "
                 f"for meaningful evaluation. Maximum lookback is {BACKTESTING_MAX_LOOKBACK_DAYS} days."
@@ -52,11 +52,12 @@ class FastStochOscCrossover(BaseStrategy):
             symbol: The symbol being analyzed.
 
         Returns:
-            Score array with values between -1.0 and +1.0, indexed by datetime.
+            Score array with values between -1.0 and +1.0, indexed by the original data's index.
         """
         self.validate_data(data)
 
-        data_resampled = DataUnitConverter.convert_to_daily_data(symbol, data)
+        # TODO: This is a magic number.
+        data_resampled = DataUnitConverter.convert_to_1h_data(symbol, data)
 
         # Calculate %K
         lowest_low = data_resampled["Low"].rolling(self.k_period).min()
@@ -80,7 +81,7 @@ class FastStochOscCrossover(BaseStrategy):
 
         return pd.Series(
             data=crossover_signal.fillna(0).clip(-1, 1).values,
-            index=pd.to_datetime(data["datetime"]),
+            index=data.index,
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
@@ -99,7 +100,7 @@ class FastStochOscCrossover(BaseStrategy):
             # TODO: Using * 2.0 here to give buffer zone for any miscalculations.
             # This depends on the resampling of the data
             data.iloc[
-                -(round(convert_units(self.k_period, "DAY", CANDLE_UNIT) * 2.0)) :
+                -(round(convert_units(self.k_period, "1H", CANDLE_UNIT) * 2.0)) :
             ],
             symbol,
         ).iloc[-1]

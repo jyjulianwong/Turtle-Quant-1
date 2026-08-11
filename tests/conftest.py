@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 import pytz
 
+# NOTE: We cannot import get_logger here to avoid importing environment configuration before test configuration.
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ def sample_ohlcv_data(dates):
             "Close": [151.0, 152.0],
             "Volume": [1000000, 1100000],
         },
-        index=pd.date_range(dates["start"], periods=2, freq="h"),
+        index=pd.date_range(dates["start"], periods=2, freq="5min"),
     )
 
     # Reset index to make datetime a column (matches expected format)

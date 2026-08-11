@@ -43,7 +43,7 @@ class MovingAverageConDiv(BaseStrategy):
         # This depends on the resampling of the data
         if (
             slow_candles
-            > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "DAY", "DAY") * 0.5
+            > convert_units(BACKTESTING_MAX_LOOKBACK_DAYS, "1D", "1H") * 0.5
         ):
             raise ValueError(
                 f"This strategy relies on too many lookback candles ({slow_candles}) for meaningful evaluation. "
@@ -63,11 +63,12 @@ class MovingAverageConDiv(BaseStrategy):
             symbol: The symbol being analyzed.
 
         Returns:
-            Score array with each value between -1.0 and +1.0, indexed by datetime
+            Score array with each value between -1.0 and +1.0, indexed by the original data's index.
         """
         self.validate_data(data)
 
-        data_resampled = DataUnitConverter.convert_to_daily_data(symbol, data)
+        # TODO: This is a magic number.
+        data_resampled = DataUnitConverter.convert_to_1h_data(symbol, data)
 
         # Calculate EMAs
         ema_fast = (
@@ -95,7 +96,7 @@ class MovingAverageConDiv(BaseStrategy):
 
         return pd.Series(
             data=score.fillna(0).clip(-1, 1).values,
-            index=pd.to_datetime(data["datetime"]),
+            index=data.index,
         )
 
     def generate_prediction_score(self, data: pd.DataFrame, symbol: str) -> float:
@@ -118,7 +119,7 @@ class MovingAverageConDiv(BaseStrategy):
             # TODO: Work out why this needs more than * 2.0.
             # This depends on the resampling of the data
             data.iloc[
-                -(round(convert_units(n_candles_required, "DAY", CANDLE_UNIT) * 4.0)) :
+                -(round(convert_units(n_candles_required, "1H", CANDLE_UNIT) * 4.0)) :
             ],
             symbol,
         ).iloc[-1]
