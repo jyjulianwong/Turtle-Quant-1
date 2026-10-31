@@ -16,6 +16,7 @@
 - **DevOps**: A one-click push-to-main CI/CD pipeline trigger that builds and deploys Docker images and Cloud Run Jobs as part of an efficient DevOps setup using GitHub Actions and Terraform
 - **Software design**: Loosely-coupled and cohesive classes that: 1. adhere to object-oriented programming and software design best practices, 2. offer simple plug-and-play multi-vendor support (e.g. Yahoo Finance, Alpha Vantage)
 
+<!-- --8<-- [start:docs-body] -->
 ## Get started with development
 
 1. Clone the repository.
@@ -95,3 +96,4 @@ gcloud iam service-accounts keys create ~/key.json --iam-account svc-usea1-tf@${
 gcloud projects add-iam-policy-binding ${GOOGLE_CLOUD_PROJECT} --member "serviceAccount:svc-usea1-tf@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" --role "roles/bigquery.user"
 gcloud projects get-iam-policy $GOOGLE_CLOUD_PROJECT
 ```
+<!-- --8<-- [end:docs-body] -->
