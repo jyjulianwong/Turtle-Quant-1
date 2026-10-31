@@ -2,7 +2,6 @@ site_name: Turtle Quant 1
 site_description: All hail the turt.
 repo_name: jyjulianwong/Turtle-Quant-1
 repo_url: https://github.com/jyjulianwong/Turtle-Quant-1
-edit_uri: edit/main/
 
 nav:
   - Home: index.md
@@ -11,20 +10,23 @@ nav:
 
 theme:
   name: material
+  font:
+    text: IBM Plex Sans
+    code: JetBrains Mono
   logo: turtle.webp
   favicon: turtle.webp
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
@@ -34,9 +36,12 @@ theme:
     - navigation.tabs
     - navigation.top
     - navigation.footer
+    - navigation.sections
     - search.suggest
     - content.code.copy
-    - content.action.edit
+
+extra_css:
+  - stylesheets/extra.css
 
 plugins:
   - search
