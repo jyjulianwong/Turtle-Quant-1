@@ -44,7 +44,7 @@ html {
   --md-footer-bg-color--dark: #020617;
 }
 
-/* Header + tabs: slate bar, frosted */
+/* Header + tabs: solid slate bar (translucency washes out over a white page) */
 .md-header,
 .md-tabs {
   background-color: #0f172a;
@@ -52,9 +52,7 @@ html {
 }
 
 .md-header {
-  background-color: rgba(15, 23, 42, 0.88);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  background-color: #0f172a;
 }
 
 .md-tabs__link--active {
@@ -65,6 +63,10 @@ html {
 .md-typeset {
   font-size: 0.8rem;
   line-height: 1.7;
+}
+
+.md-typeset h1 {
+  color: var(--md-default-fg-color);
 }
 
 .md-typeset h1,
@@ -141,10 +143,6 @@ html {
 /* API reference (mkdocstrings) */
 .doc-heading {
   font-family: var(--md-code-font-family);
-}
-
-.md-typeset .doc-contents {
-  border-left: 2px solid var(--md-default-fg-color--lightest);
 }
 
 /* Logo on the home page */
