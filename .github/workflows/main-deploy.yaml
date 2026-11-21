@@ -11,8 +11,8 @@ permissions:
   id-token: write
 
 jobs:
-  scan-vulnerabilities:
-    name: Scan Vulnerabilities
+  security-scan:
+    name: Security scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -23,8 +23,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  unit_test:
-    needs: scan-vulnerabilities
+  unit-test:
+    needs: security-scan
     runs-on: ubuntu-latest
     steps:
       - name: ⚙️ Set up repository
@@ -46,8 +46,8 @@ jobs:
         run: |
           uv run pytest tests/ -v
   
-  version_bump:
-    needs: unit_test
+  version-bump:
+    needs: unit-test
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.psr.outputs.version }}
@@ -88,10 +88,10 @@ jobs:
           echo "Released:  ${{ steps.psr.outputs.released }}"
 
   build:
-    needs: version_bump
+    needs: version-bump
     if: |
       github.ref == 'refs/heads/main' &&
-      ${{ needs.version_bump.outputs.released }} == 'true'
+      ${{ needs.version-bump.outputs.released }} == 'true'
     environment: google-cloud
     runs-on: ubuntu-latest
     outputs:
@@ -116,7 +116,7 @@ jobs:
 
       - name: 🏗️ Build Docker image
         run: |
-          IMAGE_TAG="${{ vars.TURTLEQUANT1_GCLOUD_REGION }}-docker.pkg.dev/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}-gar-usea1-docker/turtle-quant-1:${{ needs.version_bump.outputs.version }}"
+          IMAGE_TAG="${{ vars.TURTLEQUANT1_GCLOUD_REGION }}-docker.pkg.dev/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}/${{ vars.TURTLEQUANT1_GCLOUD_PROJECT_ID }}-gar-usea1-docker/turtle-quant-1:${{ needs.version-bump.outputs.version }}"
           
           echo "Building image..."
           docker build -t $IMAGE_TAG --platform linux/amd64 -f Dockerfile .
@@ -184,7 +184,7 @@ jobs:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
         run: terraform validate
 
-      - name: ⚙️ Import Existing Resources
+      - name: ⚙️ Import existing resources
         working-directory: ./terraform
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
